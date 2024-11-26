@@ -19,16 +19,9 @@ jobs:
         sed -i 's|__CLIENT_SECRET__|${{ secrets.CLIENT_SECRET }}|g' create-trc.html
         sed -i 's|__REFRESH_TOKEN__|${{ secrets.REFRESH_TOKEN }}|g' create-trc.html
 
-    - name: Commit changes
-      run: |
-        git config --global user.name 'github-actions[bot]'
-        git config --global user.email 'github-actions[bot]@users.noreply.github.com'
-        git add create-trc.html
-        git commit -m 'Update create-trc.html with secrets'
-
-    - name: Push changes
-      env:
-        GITHUB_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
-      run: |
-        git remote set-url origin https://x-access-token:${{ secrets.PERSONAL_ACCESS_TOKEN }}@github.com/212oscar/sforward.git
-        git push origin main
+    - name: Deploy to GitHub Pages
+      uses: peaceiris/actions-gh-pages@v3
+      with:
+        personal_token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+        publish_dir: .  # Adjust this to your build output directory if needed
+        publish_branch: main  # Ensure this is set to main
