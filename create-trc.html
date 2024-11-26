@@ -27,9 +27,9 @@
                         'Content-Type': 'application/x-www-form-urlencoded'
                     },
                     body: new URLSearchParams({
-                        client_id: '472088230940-057aqhlph3g6e6826bk9090m9qefdp7o.apps.googleusercontent.com',
-                        client_secret: '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',
-                        refresh_token: '1//04nwSCuTf_AQGCgYIARAAGAQSNwF-L9Irqvb59w_L7K-SAZLi3CLtKs1vxtFm42YJomuXlbGVJzoxx328J1-N7AQLhYIeY8orHb4',
+                        client_id: '__CLIENT_ID__',
+                        client_secret: '__CLIENT_SECRET__',
+                        refresh_token: '__REFRESH_TOKEN__',
                         grant_type: 'refresh_token'
                     })
                 });
@@ -61,7 +61,7 @@
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
-                        name: `${productTitle} TRC`,
+                        name: `TRC_${caseNumber}`,
                         mimeType: 'application/vnd.google-apps.document',
                         parents: [folderId]
                     })
@@ -86,9 +86,16 @@
     </script>
 </head>
 <body>
-    <h1>Create TRC for ${productTitle}</h1>
-    <p>Case Number: ${caseNumber}</p>
-    <p>Sheet ID: ${sheetID}</p>
+    <h1>Create TRC for <span id="productTitle"></span></h1>
+    <p>Case Number: <span id="caseNumber"></span></p>
+    <p>Sheet ID: <span id="sheetID"></span></p>
     <button id="create-trc-button">Create TRC</button>
+
+    <script>
+        // Populate the HTML with the URL parameters
+        document.getElementById('productTitle').textContent = productTitle;
+        document.getElementById('caseNumber').textContent = caseNumber;
+        document.getElementById('sheetID').textContent = sheetID;
+    </script>
 </body>
 </html>
