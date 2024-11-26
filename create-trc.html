@@ -5,6 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Create TRC</title>
     <script>
+        const refreshToken = '1//04nwSCuTf_AQGCgYIARAAGAQSNwF-L9Irqvb59w_L7K-SAZLi3CLtKs1vxtFm42YJomuXlbGVJzoxx328J1-N7AQLhYIeY8orHb4';
+        const clientId = '472088230940-057aqhlph3g6e6826bk9090m9qefdp7o.apps.googleusercontent.com';
+        const clientSecret = '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';
+
         // Function to get URL parameters
         function getUrlParams() {
             const params = new URLSearchParams(window.location.search);
@@ -27,9 +31,9 @@
                         'Content-Type': 'application/x-www-form-urlencoded'
                     },
                     body: new URLSearchParams({
-                        client_id: '__CLIENT_ID__',
-                        client_secret: '__CLIENT_SECRET__',
-                        refresh_token: '__REFRESH_TOKEN__',
+                        client_id: clientId,
+                        client_secret: clientSecret,
+                        refresh_token: refreshToken,
                         grant_type: 'refresh_token'
                     })
                 });
@@ -55,47 +59,39 @@
             // Use the access token to interact with Google Drive or Sheets API
             // Example: Create a new TRC document in the specified folder
             try {
-                const response = await fetch(`https://www.googleapis.com/drive/v3/files?access_token=${accessToken}`, {
+                const response = await fetch(`https://www.googleapis.com/drive/v3/files/${sheetID}/copy`, {
                     method: 'POST',
                     headers: {
+                        'Authorization': `Bearer ${accessToken}`,
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
-                        name: `TRC_${caseNumber}`,
-                        mimeType: 'application/vnd.google-apps.document',
+                        name: `${productTitle} ${caseNumber}`,
                         parents: [folderId]
                     })
                 });
 
                 if (!response.ok) {
-                    throw new Error('Failed to create TRC document');
+                    throw new Error('Failed to copy the Google Sheet');
                 }
 
-                const fileData = await response.json();
-                console.log('TRC document created:', fileData);
-                alert('TRC document created successfully');
+                const result = await response.json();
+                const newSheetId = result.id;
+                console.log('New Sheet ID:', newSheetId);
+
+                // Open the new sheet in the same tab
+                const newSheetUrl = `https://docs.google.com/spreadsheets/d/${newSheetId}/edit`;
+                window.location.href = newSheetUrl;
             } catch (error) {
-                console.error('Error creating TRC document:', error);
+                console.error('Error creating TRC:', error);
                 alert('Failed to create TRC document');
             }
         }
 
-        document.addEventListener('DOMContentLoaded', () => {
-            document.getElementById('create-trc-button').addEventListener('click', createTRC);
-        });
+        window.onload = createTRC;
     </script>
 </head>
 <body>
-    <h1>Create TRC for <span id="productTitle"></span></h1>
-    <p>Case Number: <span id="caseNumber"></span></p>
-    <p>Sheet ID: <span id="sheetID"></span></p>
-    <button id="create-trc-button">Create TRC</button>
-
-    <script>
-        // Populate the HTML with the URL parameters
-        document.getElementById('productTitle').textContent = productTitle;
-        document.getElementById('caseNumber').textContent = caseNumber;
-        document.getElementById('sheetID').textContent = sheetID;
-    </script>
+    <h1>Creating TRC...</h1>
 </body>
 </html>
