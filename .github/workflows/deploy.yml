@@ -1,0 +1,27 @@
+name: Deploy TRC HTML
+
+on:
+  push:
+    branches:
+      - main  # Adjust this to your default branch
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Replace secrets in HTML
+      run: |
+        sed -i 's|__CLIENT_ID__|${{ secrets.CLIENT_ID }}|g' create-trc.html
+        sed -i 's|__CLIENT_SECRET__|${{ secrets.CLIENT_SECRET }}|g' create-trc.html
+        sed -i 's|__REFRESH_TOKEN__|${{ secrets.REFRESH_TOKEN }}|g' create-trc.html
+
+    - name: Deploy to GitHub Pages
+      uses: peaceiris/actions-gh-pages@v3
+      with:
+        personal_token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+        publish_dir: .  # Adjust this to your build output directory if needed
+        publish_branch: gh-pages  # Ensure this is set to gh-pages
