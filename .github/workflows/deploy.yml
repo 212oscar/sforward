@@ -24,3 +24,4 @@ jobs:
       with:
         personal_token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
         publish_dir: .  # Adjust this to your build output directory if needed
+        publish_branch: main  # Ensure this is set to main
