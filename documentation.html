@@ -45,6 +45,13 @@
         h2 {
             display: inline-block;
         }
+
+        h3 {
+            display: inline-block;
+        }
+        .description {
+            margin-left: 20px;
+        }
     </style>
 </head>
 <body>
@@ -68,9 +75,9 @@
             designed to help mods in the content review, uploading, and 
             building process. These tools help avoid mistakes or misclicks 
             showing the most used information and buttons in an overlay for 
-            Salesforce, this tool only use the information showed on screen 
+            Salesforce, we only use the information showed on screen 
             this doesn't modify anything on SF just make it easy for you
-            to read the information you need.</p>
+            to read the information you need in your workflow.</p>
 
         <details open>
             <summary><h2 id="disclaimer">Before Using:</h2></summary>
@@ -80,27 +87,103 @@
                     <li>You still need to verify that all the steps in your workflow are being executed correctly.</li>
                     <li>These are just tools to save you some time gathering the needed info.</li>
                     <li>You are still responsible for your own work.</li>
-                    <li>In case you found a bug or some tool is not working as expected you should stop using that tool and report the issue so it can be fixed.</li>
+                    <li>In case you found a bug or some tool is not working as expected you should stop using the tool and please report the issue to me (Oscar O. in Slack) and I'll try to fix it.</li>
                 </ul>
             </div>
         </details>
 
-        <details>
+        <details open>
             <summary><h2 id="features">Features</h2></summary>
-            <div>
-                <ul>
-                    <li>Process selected info and copy App Name</li>
-                    <li>Copy SF Case</li>
-                    <li>Manage cases with floating buttons</li>
-                    <li>Send data to P4V Helper to quickly create new folders in the depot</li>
-                    <li>Automatically send needed data to the Horde</li>
-                    <li>Create new TRC with Product title and Case number as a name</li>
-                    <li>Use custom templates (sheets ID) to pre-load a TRC for each product type</li>
-                    <li>Organize TRCs into specific folders with GSheet Organizer</li>
-                    <li>Easily see your shifts</li>
-                    <li>Clock-in / out reminders</li>
-                    <li>Easily create a shift report with the cases worked</li>
-                </ul>
+            <div class="description">
+                <fieldset><legend>Salesforce Tools</legend>
+                <details>
+                    <summary><h3>Assign to me</h3></summary>
+                    <p>With this button you can easily assign a SF case to you, just click it
+                        and while is loading you can click Copy SF case and claim the case also in Slack.
+                    </p>
+                </details>
+                <details>
+                    <summary><h3>Get Info</h3></summary>
+                    <p>Will show you a friendly summary of the app names
+                        with YES in the colum of "Is New or Changed"
+                    from this window you can easily see the supported versions for each app Name
+                    copy the app name (to quickly find it in the Depot) or in case you are working
+                    on a new submission or Adding a new version (update ADD case) you can click "P4V data"
+                    and then with the other tool "P4Vhelper" you can click "Get data" and from there you can Quickly
+                    create a folder in the P4V workspace, this will save you a lot of clicks. There is also a button "Horde"
+                    that will quickly create the Job horde for you with just one click.</p>
+                    </p>
+                    <p>You can also see in the top of this section the warning color indicator of the seller, Case Type (New submission or Update) and the SF case</p>
+                </details>
+                <details>
+                    <summary><h3>Copy SF Case</h3></summary>
+                    <p>We always need the SF case number for everything (claiming the case in slack, notes on p4, etc) thats why I've included
+                        a dedicated button for this. Just click it and the case number will be copied to your clipboard.
+                    </p>
+                </details>
+                <details>
+                    <summary><h3>Create TRC</h3></summary>
+                    <p>For new submissions review, I've included this button to quickly create a TRC using the Product title and SF Case
+                        number, the first time you use any of the templates, the script will ask you to paste the Sheet Template ID.
+                    </p>
+                    <p>To get the Template sheet ID, use the following URL as an example:
+                        <br><pre><code>https://docs.google.com/spreadsheets/d/1fYkeQQ_bLESF7aw4nswwiw_5ZI7IH6mp8yqIATX39MQ/edit?gid=1812179549#gid=1812179549</code></pre>
+                        <br>The Template sheet ID is the part between `/d/` and `/edit`, which in this case is <pre><code>1fYkeQQ_bLESF7aw4nswwiw_5ZI7IH6mp8yqIATX39MQ</code></pre>
+                    This is the ID you need to paste when the script asks for it. After the first time the script will remember the ID and will use it to create the TRCs</p>              
+                    The first time the script will also ask you for a Google Drive folder where all these Sheets will be stored, I suggest using your folder
+                    from the modsquad ID, this way you can have all the TRCs in one place, you can get your folder ID like this:</p>
+                    <p>Go to the <a href="https://drive.google.com/drive/folders/19n1Ar6HQbcjRqMEbqDGat1di2NEOBEM4" target="_blank">agent folders</a> Drive and enter in the folder with your name, you need to copy the ID of the folder the same way you did with the sheet.</p>
+                </details></fieldset><br>
+                <fieldset><legend>Change Case Status</legend>
+                    <p>Salesforce is not too friendly when changing status, to avoid sending the wrong status I've included these clean
+                        buttons for the most used status, just click the one you need and the status will be changed automatically in just 2 seconds, so make sure you already send the proper
+                        email and/or did the full review before clicking these buttons.</p>
+                    </p>
+                    <details>
+            
+                        <details>
+                            <summary><h3>Copy SF Case</h3></summary>
+                            <p>We always need the SF case number for everything (claiming the case in slack, notes on p4, etc) thats why I've included
+                                a dedicated button for this. Just click it and the case number will be copied to your clipboard.
+                            </p>
+                        </details>
+                        <details>
+                            <summary><h3>Create TRC</h3></summary>
+                            <p>For new submissions review, I've included this button to quickly create a TRC using the Product title and SF Case
+                                number, the first time you use any of the templates, the script will ask you to paste the Sheet Template ID.
+                            </p>
+                            <p>To get the Template sheet ID, use the following URL as an example:
+                                <br><pre><code>https://docs.google.com/spreadsheets/d/1fYkeQQ_bLESF7aw4nswwiw_5ZI7IH6mp8yqIATX39MQ/edit?gid=1812179549#gid=1812179549</code></pre>
+                                <br>The Template sheet ID is the part between `/d/` and `/edit`, which in this case is <pre><code>1fYkeQQ_bLESF7aw4nswwiw_5ZI7IH6mp8yqIATX39MQ</code></pre>
+                            This is the ID you need to paste when the script asks for it. After the first time the script will remember the ID and will use it to create the TRCs</p>              
+                            The first time the script will also ask you for a Google Drive folder where all these Sheets will be stored, I suggest using your folder
+                            from the modsquad ID, this way you can have all the TRCs in one place, you can get your folder ID like this:</p>
+                            <p>Go to the <a href="https://drive.google.com/drive/folders/19n1Ar6HQbcjRqMEbqDGat1di2NEOBEM4" target="_blank">agent folders</a> Drive and enter in the folder with your name, you need to copy the ID of the folder the same way you did with the sheet.</p>
+                        </details></fieldset><br>
+                        <fieldset><legend>Shift Tools</legend>
+                            <p>Salesforce is not too friendly when changing status, to avoid sending the wrong status I've included these clean
+                                buttons for the most used status, just click the one you need and the status will be changed automatically in just 2 seconds, so make sure you already send the proper
+                                email and/or did the full review before clicking these buttons.</p>
+                            </p>
+                            <details>
+                                <summary><h3>Case Log</h3></summary>
+                                <p>These buttons will change the status of the case to the selected one, the script will wait 2 seconds before changing the status, this is to avoid sending the wrong status by mistake.</p>
+                            </details>
+                            <details>
+                                <summary><h3>Add shifts / Show Shifts</h3></summary>
+                                <p>With this button the script will ask you for your tanda calendar, just go to your Tanda schedule URL 
+                                    (https://my.tanda.co/staff) you must be logged with Okta, click on your name / Attendance points / Schedules / Click on Subscribe iCal / Open that iCal URL, copy all that content, and paste it there.</p>
+                                    <p>Now the script will know your shifts and the shift report button will be enabled, if you add more shifts to your schedule then you should "Update shifts" there is a button for that too.</p>
+                                    <p>After you saved your calendar you can now enable reminders, so in case you forgot to clock out and you are still in Salesforce working, a small alert will popup with a reminder.</p>
+                            </details>
+
+                            <details>
+                                <summary><h3>Shift Report</h3></summary>
+                                <p>Create automatically a Shift report with the cases registered in Case Log, includes a custom multiplier (in case and update or New submission took a lot of time) also includes
+                                    a custom event feature so you can substract from the worked time the time you spent in a meeting or any other event like Sketchfab patrol or Horde outages.</p>
+                                </p>
+                            </details>
+                            </fieldset>
             </div>
         </details>
 
