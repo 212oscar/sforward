@@ -213,7 +213,7 @@ checkPageLoading();
         ['Materials / 2D assets', ''],
         ['Animations', ''],
         ['VFX', ''],
-        ['Clean TRC', '']
+        ['Blank TRC (Original)', '']
     ]);
 
     // Function to show a modal and collect user input
@@ -552,7 +552,7 @@ checkPageLoading();
             const option = document.createElement('div');
             option.innerText = template;
             option.style.cssText = `
-                background: ${template === 'Clean TRC' ? '#d8b2d8' : '#6f42c1'};
+                background: ${template === 'Blank TRC (Original)' ? '#d8b2d8' : '#6f42c1'};
                 color: white;
                 border: none;
                 border-radius: 5px;
@@ -568,19 +568,8 @@ checkPageLoading();
             trcTemplateMenu.appendChild(option);
         });
 
-        // Check if any template ID or folder ID is stored
-        let anyStored = false;
-        templateSheetIds.forEach((_, template) => {
-            if (localStorage.getItem(template)) {
-                anyStored = true;
-            }
-        });
-        if (localStorage.getItem('folderId')) {
-            anyStored = true;
-        }
 
-        // Add "Edit" button if any template ID or folder ID is stored
-        if (anyStored) {
+       // Edit button for stored template IDs and folder ID
             const editButton = document.createElement('div');
             editButton.innerText = 'Edit';
             editButton.style.cssText = `
@@ -597,7 +586,7 @@ checkPageLoading();
                 showEditModal();
             });
             trcTemplateMenu.appendChild(editButton);
-        }
+        
 
         section1.appendChild(trcTemplateMenu);
 
@@ -689,11 +678,49 @@ checkPageLoading();
         section3.appendChild(shiftReportButton);
     }
 
-        // Create the "Show Shifts" button (Blue)
-        const showShiftsButton = createButton('Show Shifts', '#007bff', () => {
-            displayShiftInfo();
+       // Create the "Show Shifts" button (Blue) only if shifts are stored in local storage
+        if (localStorage.getItem('parsedTandaScheduleData')) {
+            const showShiftsButton = createButton('Show Shifts', '#007bff', () => {
+                displayShiftInfo();
+            });
+            section3.appendChild(showShiftsButton);
+        }
+
+        // Create the "Reset all" button (Red)
+        const resetAllButton = document.createElement('button');
+        resetAllButton.innerText = 'Reset all';
+        resetAllButton.style.cssText = `
+            background: #f44336;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            padding: 2px 2px;
+            cursor: pointer;
+            margin-top: 10px;
+        `;
+
+
+        resetAllButton.addEventListener('click', () => {
+            if (confirm('Are you sure you want to reset all settings and stored information (Shifts, Cases, Sheets ID, etc)? This action cannot be undone.')) {
+                // Clear all relevant local storage items
+                localStorage.removeItem('parsedTandaScheduleData');
+                localStorage.removeItem('sfCaseLog');
+                localStorage.removeItem('folderId');
+                localStorage.removeItem('reminderCheckboxState');
+                templateSheetIds.forEach((_, key) => {
+                    localStorage.removeItem(key);
+                });
+                alert('All settings have been reset.');
+                location.reload(); // Reload the page to apply changes
+            }
         });
-        section3.appendChild(showShiftsButton);
+        section3.appendChild(resetAllButton);
+
+        // Create a container for the reset button
+        const resetButtonContainer = document.createElement('div');
+        resetButtonContainer.style.cssText = 'margin-top: 0px; margin-bottom: 5px;';
+        resetButtonContainer.appendChild(resetAllButton);
+        section3.appendChild(resetButtonContainer);
 
         // Append sections to the body
         document.body.appendChild(section1);
