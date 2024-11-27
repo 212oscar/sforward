@@ -95,6 +95,7 @@
         <details open>
             <summary><h2 id="features">Features</h2></summary>
             <div class="description">
+                <h3>SFhelper:</h3>
                 <fieldset><legend>Salesforce Tools</legend>
                 <details>
                     <summary><h3>Assign to me</h3></summary>
@@ -139,27 +140,21 @@
                         buttons for the most used status, just click the one you need and the status will be changed automatically in just 2 seconds, so make sure you already send the proper
                         email and/or did the full review before clicking these buttons.</p>
                     </p>
-                    <details>
+                   
             
                         <details>
-                            <summary><h3>Copy SF Case</h3></summary>
+                            <summary><h3>Approve</h3></summary>
                             <p>We always need the SF case number for everything (claiming the case in slack, notes on p4, etc) thats why I've included
                                 a dedicated button for this. Just click it and the case number will be copied to your clipboard.
                             </p>
                         </details>
                         <details>
-                            <summary><h3>Create TRC</h3></summary>
-                            <p>For new submissions review, I've included this button to quickly create a TRC using the Product title and SF Case
-                                number, the first time you use any of the templates, the script will ask you to paste the Sheet Template ID.
-                            </p>
-                            <p>To get the Template sheet ID, use the following URL as an example:
-                                <br><pre><code>https://docs.google.com/spreadsheets/d/1fYkeQQ_bLESF7aw4nswwiw_5ZI7IH6mp8yqIATX39MQ/edit?gid=1812179549#gid=1812179549</code></pre>
-                                <br>The Template sheet ID is the part between `/d/` and `/edit`, which in this case is <pre><code>1fYkeQQ_bLESF7aw4nswwiw_5ZI7IH6mp8yqIATX39MQ</code></pre>
-                            This is the ID you need to paste when the script asks for it. After the first time the script will remember the ID and will use it to create the TRCs</p>              
-                            The first time the script will also ask you for a Google Drive folder where all these Sheets will be stored, I suggest using your folder
-                            from the modsquad ID, this way you can have all the TRCs in one place, you can get your folder ID like this:</p>
-                            <p>Go to the <a href="https://drive.google.com/drive/folders/19n1Ar6HQbcjRqMEbqDGat1di2NEOBEM4" target="_blank">agent folders</a> Drive and enter in the folder with your name, you need to copy the ID of the folder the same way you did with the sheet.</p>
-                        </details></fieldset><br>
+                            <summary><h3>Changes Needed</h3></summary>
+                         </details>
+                         <details>
+                            <summary><h3>Decline</h3></summary>
+                         </details>
+                    </fieldset><br>
                         <fieldset><legend>Shift Tools</legend>
                             <p>Salesforce is not too friendly when changing status, to avoid sending the wrong status I've included these clean
                                 buttons for the most used status, just click the one you need and the status will be changed automatically in just 2 seconds, so make sure you already send the proper
@@ -167,10 +162,12 @@
                             </p>
                             <details>
                                 <summary><h3>Case Log</h3></summary>
-                                <p>These buttons will change the status of the case to the selected one, the script will wait 2 seconds before changing the status, this is to avoid sending the wrong status by mistake.</p>
+                                <p>When you use the button "Assign to me" these case will be stored in a this Case Log, I've added the ability to change the case type in Case
+                                    the script fails to detect the case type, you can also delete the case from the log in case someone <s>steal</s> claim it first on slack and you have to take another.</p>
+                                </p>
                             </details>
                             <details>
-                                <summary><h3>Add shifts / Show Shifts</h3></summary>
+                                <summary><h3>Add shifts / Show Shifts / Clock-in-out reminders</h3></summary>
                                 <p>With this button the script will ask you for your tanda calendar, just go to your Tanda schedule URL 
                                     (https://my.tanda.co/staff) you must be logged with Okta, click on your name / Attendance points / Schedules / Click on Subscribe iCal / Open that iCal URL, copy all that content, and paste it there.</p>
                                     <p>Now the script will know your shifts and the shift report button will be enabled, if you add more shifts to your schedule then you should "Update shifts" there is a button for that too.</p>
@@ -184,30 +181,66 @@
                                 </p>
                             </details>
                             </fieldset>
+
+                       
+                            <h3>P4Vhelper:</h3>
+                            <fieldset><legend>Features</legend>
+                            
+                                <p>Additional program to help with the workflow of adding new files to the P4V depot, just set your current P4V workspace and
+                                    the script will help you to create new folders in the depot working seamlessly with the SFhelper, you can fill the needed info by clicking in the 
+                                    SFhelper script the "P4V data" button and then here in the P4Vhelper click on "Get Data", you can also clear workspace directories, and toggle dark mode.</p>
+                                <p>Works better when working with two or more monitors, you can have the Island browser with salesforce in one screen and the P4Vhelper and P4V (Perforce Helix P4V) client in the other.</p>
+                                </p>
+                            
+                        </fieldset>
+                          
             </div>
         </details>
 
-        <details>
-            <summary><h2 id="installation">Installation</h2></summary>
+        <details open>
+            <summary><h2 id="installation">Installation and basic usage</h2></summary>
             <div>
-                <p>To install the scripts, follow these steps:</p>
+                <fieldset><legend>SFhelper</legend>
+                    <p>To install the SFhelper, follow these steps:</p>
+                    <ol>
+                        <li>Ensure that developer mode is enabled in Island Browser / Manage extensions.</li>
+                        <li>Click on the Tampermonkey icon and select "Dashboard".</li>
+                        <li>Click on the "Utilities" tab on the right side of the dashboard.</li>
+                        <li>In the "Import from URL" section, paste the following URL and click "Import":
+                            <br><pre><code>https://raw.githubusercontent.com/212oscar/sforward/main/tp-uemkp-scripts/SFhelper.js</code></pre>
+                        </li>
+                        <li>Confirm the installation of the script.</li>
+                        <li>Make sure Tampermonkey is enabled.</li>
+                        <li>Now it should be working when you enter in Salesforce, if is not showing up, restart the Island Browser.</li>
+                    </ol>
+
+                    <p>Alternatively, you can manually install the script:</p>
                 <ol>
-                    <li>Open Tampermonkey in your browser.</li>
-                    <li>Create a new script and paste the content of the desired .js file.</li>
+                    <li>Open the previous URL in a new tab and copy all the content.</li>
+                    <li>Create a new script and paste the copied info.</li>
                     <li>Save the script and make sure Tampermonkey is enabled.</li>
                 </ol>
+                </fieldset>
+                <br>
+
+                <fieldset><legend>P4Vhelper</legend>
+                    <p>Doesn't need installation, just follow this simple instructions:</p>
+                    <ol>
+                        <li>Download the P4Vhelper.exe program from the <a href="
+
+                    <p>Alternatively, you can manually install the script:</p>
+                <ol>
+                    <li>Open the previous URL in a new tab and copy all the content.</li>
+                    <li>Create a new script and paste the copied info.</li>
+                    <li>Save the script and make sure Tampermonkey is enabled.</li>
+                </ol>
+                </fieldset>
+                
             </div>
         </details>
 
         <details>
-            <summary><h2 id="usage">Usage</h2></summary>
-            <div>
-                <p>Ensure that you understand the functionality of each script and that it aligns with the project requirements. Use these scripts responsibly to maintain productivity and efficiency.</p>
-            </div>
-        </details>
-
-        <details>
-            <summary><h2 id="sf-helper">SF Helper</h2></summary>
+            <summary><h2 id="sf-helper">P4Vhelper</h2></summary>
             <div>
                 <h3>Overview</h3>
                 <p>The SF Helper script enhances Salesforce functionality, making it easier to access and visualize the specific information needed for the project.</p>
