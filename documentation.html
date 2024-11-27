@@ -220,12 +220,15 @@
                 </fieldset>
                 <br>
 
-                <fieldset><legend>P4Vhelper</legend>
+                <fieldset><legend>P4Vhelper (optional)</legend>
+                    <div style="border: 1px solid rgb(255, 172, 172); background-color: #ffe6e6; padding: 10px; margin-bottom: 10px;">
+                        <strong>NOTE:</strong> Windows Defender can flag this P4Vhelper.exe as a malicious program. However, this is a false positive, you can add this exception in the windows defender if you get this Windows defender alert. I've already sent it to Microsoft to remove the flag. In case you want to compile the .exe yourself and see the source code, you can find it here: 
+                        <a href="https://github.com/212oscar/sforward/blob/main/P4Vhelper_public/P4Vhelper.py" target="_blank">P4Vhelper.py Source Code</a>.
+                        <br><br> OR you can also omit using this tool and just use the SFhelper in the Island browser.
+                    </div>
                     <p>Doesn't need installation, just follow this simple instructions:</p>
                     <ol>
                         <li>Download the P4Vhelper.exe program from here: <a href="https://github.com/212oscar/sforward/raw/refs/heads/main/P4Vhelper_public/P4Vhelper.exe" target="_blank">Download P4Vhelper</a>.</li>
-
-                    <p>Alternatively, you can manually install the script:</p>
               
                     <li>Save the executable in a custom folder on your computer.</li>
                     <li>Create a shortcut to the executable on your desktop for easy access.</li>
@@ -267,8 +270,7 @@
                 <h3>Q: Will this break any Modsquad / Epic security policies?</h3>
                 <p>A: I’ve re-reviewed the Workday policies (Epic) and I believe this script complies. It only uses visible Salesforce data, processes it 
                     locally in the browser via Tampermonkey (allowed on Island), and doesn’t store or share data externally. 
-                    The code is fully transparent for anyone to review and ensures no breaches of policy. If you want the 
-                    source code of the P4Vhelper i can send it to  you via Slack DM. Please if you know we are breaking some policy with some feature let me know.</p>
+                    The code is fully transparent for anyone to review and ensures no breaches of policy. Please if you think we are breaking some policy with some feature let me know.</p>
                 <h3>Q: How do I use the P4V Helper program?</h3>
                 <p>A: Follow the usage steps provided in the P4V Helper section.</p>
                 <h3>Q: How do I organize Google Sheets TRC?</h3>
