@@ -6,6 +6,8 @@
 // @author       Oscar O.
 // @match        https://epicgames.lightning.force.com/lightning/*
 // @grant        none
+// @downloadURL  https://raw.githubusercontent.com/212oscar/sforward/main/tp-uemkp-scripts/SFhelper.js
+// @updateURL    https://raw.githubusercontent.com/212oscar/sforward/main/tp-uemkp-scripts/SFhelper.js
 // ==/UserScript==
 
 (function () {
