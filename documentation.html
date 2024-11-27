@@ -226,88 +226,26 @@
                 <fieldset><legend>P4Vhelper</legend>
                     <p>Doesn't need installation, just follow this simple instructions:</p>
                     <ol>
-                        <li>Download the P4Vhelper.exe program from the <a href="
+                        <li>Download the P4Vhelper.exe program from here: <a href="https://github.com/212oscar/sforward/raw/refs/heads/main/P4Vhelper_public/P4Vhelper.exe" target="_blank">Download P4Vhelper</a>.</li>
 
                     <p>Alternatively, you can manually install the script:</p>
-                <ol>
-                    <li>Open the previous URL in a new tab and copy all the content.</li>
-                    <li>Create a new script and paste the copied info.</li>
-                    <li>Save the script and make sure Tampermonkey is enabled.</li>
-                </ol>
+              
+                    <li>Save the executable in a custom folder on your computer.</li>
+                    <li>Create a shortcut to the executable on your desktop for easy access.</li>
+                    <li>Open the P4Vhelper application.</li>
+                    <li>Set your current P4V workspace in the application settings.</li>
+                    <li>Use the "Get Data" button in P4Vhelper after clicking "P4V data" in the SFhelper script to fill the needed information.</li>
+                    <li>Use the "Generate" button to quickly create new folders in the depot, you can also clear workspace directories, and toggle dark mode.</li>
+                    <li>Your productivity can be increased a lot if you use two or more monitors: one for the Island browser with Salesforce and the other for the P4Vhelper and P4V (Perforce Helix P4V) client.</li>
                 </fieldset>
                 
             </div>
         </details>
 
         <details>
-            <summary><h2 id="sf-helper">P4Vhelper</h2></summary>
-            <div>
-                <h3>Overview</h3>
-                <p>The SF Helper script enhances Salesforce functionality, making it easier to access and visualize the specific information needed for the project.</p>
-                <h3>Features</h3>
-                <ul>
-                    <li>One click Copy SF Case</li>
-                    <li>Manage cases with floating buttons</li>
-                    <li>Show only the needed information (app names with YES) with "Get info" button</li>
-                    <li>Create new TRC with Product title and Case number as a name</li>
-                    <li>Use custom templates (sheets ID) to pre-load a TRC for each product type</li>
-                    <li>Store and see your workforce shifts</li>
-                    <li>Clock-in / out reminders</li>
-                    <li>Easily create a shift report with the cases worked</li>
-                </ul>
-                <h3>Usage</h3>
-                <p>To use the SF Helper script, follow these steps:</p>
-                <ol>
-                    <li>Ensure Tampermonkey is enabled in your browser.</li>
-                    <li>Navigate to Salesforce and the script will automatically enhance the functionality.</li>
-                    <li>Use the floating buttons to manage cases and copy information.</li>
-                </ol>
-            </div>
-        </details>
-
-        <details>
-            <summary><h2 id="p4v-helper">P4V Helper</h2></summary>
-            <div>
-                <h3>Overview</h3>
-                <p>The P4V Helper script assists in creating new folders in the depot and automating various tasks related to the content review process.</p>
-                <h3>Features</h3>
-                <ul>
-                    <li>Quickly create new folders in the depot</li>
-                    <li>Send needed data to the Horde</li>
-                    <li>Clear workspace directories</li>
-                    <li>Toggle dark mode</li>
-                </ul>
-                <h3>Usage</h3>
-                <p>To use the P4V Helper program, follow these steps:</p>
-                <ol>
-                    <li>Download the P4V Helper .exe program.</li>
-                    <li>Run the .exe program on your computer.</li>
-                    <li>Select the same P4V workspace used in the P4V visual client.</li>
-                    <li>Use the GUI to select the workspace, enter the required information, and create folders.</li>
-                    <li>Use the "Get Data" button to load data from the clipboard.</li>
-                    <li>Use the "Clear Workspace" button to clear specific subdirectories.</li>
-                    <li>Toggle dark mode using the button at the bottom.</li>
-                </ol>
-            </div>
-        </details>
-
-        <details>
             <summary><h2 id="gsheet-organizer">GSheet Organizer</h2></summary>
             <div>
-                <h3>Overview</h3>
-                <p>The GSheet Organizer script helps organize Google Sheets into specific folders and update sheet titles.</p>
-                <h3>Features</h3>
-                <ul>
-                    <li>Organize Google Sheets into specific folders</li>
-                    <li>Update sheet titles</li>
-                </ul>
-                <h3>Usage</h3>
-                <p>To use the GSheet Organizer script, follow these steps:</p>
-                <ol>
-                    <li>Ensure Tampermonkey is enabled in your browser.</li>
-                    <li>Navigate to Google Sheets and the script will automatically add buttons to organize sheets.</li>
-                    <li>Use the buttons to move sheets to specific folders and update titles.</li>
-                </ol>
+                <p>(Script still on development/testing, easily organize your TRC with a simple button)</p>
             </div>
         </details>
 
@@ -317,9 +255,9 @@
                 <p>If you encounter any issues while using the scripts, try the following steps:</p>
                 <ul>
                     <li>Ensure Tampermonkey is enabled in your browser.</li>
-                    <li>Check for any errors in the browser console (press F12 to open the console).</li>
                     <li>Ensure you have the latest version of the scripts.</li>
-                    <li>Contact the author for further assistance.</li>
+                    <li>Some features may not work if Salesforce or Horde page are slow or if they change those pages drastically, but the script can be updated if they change something in Salesforce or Horde.</li>
+                    <li>Contact me via DM in Slack (Oscar O.) for further assistance.</li>
                 </ul>
             </div>
         </details>
@@ -327,14 +265,17 @@
         <details>
             <summary><h2 id="faq">FAQ</h2></summary>
             <div>
-                <h3>Q: How do I install the scripts?</h3>
-                <p>A: Follow the installation steps provided in the Installation section.</p>
-                <h3>Q: How do I use the SF Helper script?</h3>
-                <p>A: Follow the usage steps provided in the SF Helper section.</p>
+                <h3>Q: Is this approved by management?</h3>
+                <p>A: Currently i only have approval to ask the leads for testing it, still is not approved to share with all the mods.</p>
+                <h3>Q: Will this break any Modsquad / Epic security policies?</h3>
+                <p>A: I’ve re-reviewed the Workday policies (Epic) and I believe this script complies. It only uses visible Salesforce data, processes it 
+                    locally in the browser via Tampermonkey (allowed on Island), and doesn’t store or share data externally. 
+                    The code is fully transparent for anyone to review and ensures no breaches of policy. If you want the 
+                    source code of the P4Vhelper i can send it to  you via Slack DM. Please if you know we are breaking some policy with some feature let me know.</p>
                 <h3>Q: How do I use the P4V Helper program?</h3>
                 <p>A: Follow the usage steps provided in the P4V Helper section.</p>
-                <h3>Q: How do I organize Google Sheets?</h3>
-                <p>A: Follow the usage steps provided in the GSheet Organizer section.</p>
+                <h3>Q: How do I organize Google Sheets TRC?</h3>
+                <p>A: I still  need to finish a couple of things in this script (GSheet organizer) so i can share it too.</p>
             </div>
         </details>
     </div>
