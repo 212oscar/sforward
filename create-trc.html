@@ -4,6 +4,126 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Create TRC</title>
+    <style>
+        body {
+            background-color: black;
+            color: white;
+            font-family: 'Arial', sans-serif;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100%;
+            margin: 10%;
+        
+        }
+        h1 {
+            font-size: 1.5em;
+            margin-bottom: 10%;
+            text-align: center;
+        }
+
+        p {
+            font-size: 1em;
+            margin-bottom: 10%;
+            text-align: center;
+            color: rgb(0, 238, 255);
+        }
+
+        .document-container {
+  position: relative;
+  width: 100px;
+  height: 130px;
+  background-color: transparent;
+}
+
+
+
+/* Document creation animation */
+.document-container {
+  position: relative;
+  width: 100px;
+  height: 130px;
+  background-color: transparent;
+}
+
+/* Document creation animation */
+.document {
+  position: absolute;
+  width: 80px;
+  height: 100px;
+  background-color: #fff;
+  border: 2px solid #ccc;
+  border-radius: 5px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  opacity: 0;
+  transform: scale(0);
+  animation: documentAppear 4s ease infinite;
+}
+
+@keyframes documentAppear {
+  0% {
+    opacity: 0;
+    transform: scale(0);
+  }
+  70% {
+    opacity: 1;
+    transform: scale(1.1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0);
+    
+  }
+}
+
+/* Text lines animation */
+.text-line {
+  position: absolute;
+  width: 60%;
+  height: 5px;
+  background-color: #ccc;
+  border-radius: 2px;
+  left: 50%;
+  transform: translateX(-50%);
+  opacity: 0;
+  animation: lineAppear 2s ease infinite;
+}
+
+.line1 {
+  top: 40px;
+  animation-delay: 0.5s;
+}
+
+.line2 {
+  top: 55px;
+  animation-delay: 0.7s;
+}
+
+.line3 {
+  top: 70px;
+  animation-delay: 0.9s;
+}
+
+@keyframes lineAppear {
+  0% {
+    width: 0;
+    opacity: 0;
+  }
+  50% {
+    width: 60%;
+    opacity: 1;
+  }
+  100% {
+    width: 0;
+    opacity: 0;
+  }
+}
+        .footer {
+            margin-top: 120px;
+            font-size: 0.8em;
+        }
+    </style>
     <script>
         const refreshToken = '1//04nwSCuTf_AQGCgYIARAAGAQSNwF-L9Irqvb59w_L7K-SAZLi3CLtKs1vxtFm42YJomuXlbGVJzoxx328J1-N7AQLhYIeY8orHb4';
         const clientId = '472088230940-057aqhlph3g6e6826bk9090m9qefdp7o.apps.googleusercontent.com';
@@ -92,6 +212,16 @@
     </script>
 </head>
 <body>
-    <h1>Creating TRC...</h1>
+    <h1>Creating TRC for the Product: <br><span id="productTitle"></span> <br>SF case: <br><span id="caseNumber"></span></h1>
+    
+    <div class="document-container">
+        
+        <div class="document"></div>
+        <div class="text-line line1"></div>
+        <div class="text-line line2"></div>
+        <div class="text-line line3"></div>
+      </div>
+      <p>Normally this should take no more than 10 seconds</p>
+    <div class="footer">With <3 by Oscar O.</div>
 </body>
 </html>
