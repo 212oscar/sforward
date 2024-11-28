@@ -1,14 +1,16 @@
 // ==UserScript==
 // @name         Salesforce Helper for ModSquad UE MKTP
 // @namespace    http://tampermonkey.net/
-// @version      2.7.0
+// @version      2.8.0
 // @description  Process selected info, copy App Name, copy SF Case, and manage cases with floating buttons.
 // @author       Oscar O.
 // @match        https://epicgames.lightning.force.com/lightning/*
 // @match        https://my.tanda.co/staff*
+// @match        https://horde.devtools.epicgames.com/stream/ue5-marketplace?tab=General
 // @grant        none
 // @downloadURL  https://raw.githubusercontent.com/212oscar/sforward/main/tp-uemkp-scripts/SFhelper.js
 // @updateURL    https://raw.githubusercontent.com/212oscar/sforward/main/tp-uemkp-scripts/SFhelper.js
+// @history      2.8.0 Autohorde when clicking the horde button! before I used another script for this but I integrated it here, so let me know of any issues.
 // @history      2.7.0 New easier way to add/update your shifts!
 // @history      2.6.2 Fixed a bug where the Copy cases button was not using the proper case type.
 // @history      2.6 Added the version number to the collapsible button and refactored the checkPageLoading function to reuse existing function
@@ -98,6 +100,124 @@
             
         }
     });
+
+    // Listen for messages from other tabs
+    window.addEventListener('message', (event) => {
+        if (event.origin !== 'https://epicgames.lightning.force.com') return;
+
+
+        const { type, data } = event.data;
+
+         // Show "Please wait" modal
+         showHordeModal('Please wait');
+
+        setTimeout(() => {
+        if (type === 'HORDE_APP_DATA') {
+            console.log('Received app data for Horde:', data);
+            closeModal();
+            showHordeModal('Please wait, getting app info');
+            fillHordeForm(data);
+            }
+            }, 2000);
+    });
+
+
+    function fillHordeForm(data) {
+
+        // Click the button to open the form
+        document.querySelector('#id__41').click();
+       
+
+        // Allow 3 seconds to load the page properly
+        setTimeout(() => {
+            
+            data.forEach(item => {
+                if (item.distributionMethod === 'CODE_PLUGIN') {
+                    fillInput('Plugin Items', item.appName);
+                    fillInput('Custom Engine Version', item.customEngineVersion);
+                } else {
+                    fillInput('AssetPack/CompleteProject Items', item.appName);
+                    fillInput('AssetPack/CompleteProject Versions', item.earliestUEVersion);
+                }
+
+                if (item.targetPlatforms.length === 1 && item.targetPlatforms[0] === 'Windows') {
+                    uncheckCheckbox('Mac');
+                }
+
+                console.log('Form filled');
+            });
+
+            closeModal();
+
+            // Add a 800 ms delay before clicking the "Start Job" button
+            setTimeout(() => {
+                const startJobButton = document.querySelector('button.ms-Button.ms-Button--primary.root-430');
+                if (startJobButton) {
+                    startJobButton.click();
+                    console.log('Start Job button clicked');
+                } else {
+                    console.error('Start Job button not found');
+                }
+            }, 800);
+        }, 3000); // Adjust the delay as needed
+    }
+
+    function fillInput(labelText, value) {
+        const input = Array.from(document.querySelectorAll('label'))
+            .find(label => label.textContent.includes(labelText))
+            ?.nextElementSibling?.querySelector('input');
+        if (input) {
+            const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+            nativeInputValueSetter.call(input, value);
+
+            // Trigger input and change events to notify JavaScript frameworks
+            const inputEvent = new Event('input', { bubbles: true });
+            const changeEvent = new Event('change', { bubbles: true });
+            input.dispatchEvent(inputEvent);
+            input.dispatchEvent(changeEvent);
+        }
+    }
+
+    function uncheckCheckbox(labelText) {
+        const checkbox = Array.from(document.querySelectorAll('label'))
+            .find(label => label.textContent.includes(labelText))
+            ?.previousElementSibling;
+        if (checkbox && checkbox.checked) {
+            checkbox.click();
+        }
+    }
+
+    const uniqueModalId = 'custom-modal-unique';
+
+    function showHordeModal(message) {
+        console.log('Creating modal with message:', message); // Debugging log
+        const modal = document.createElement('div');
+        modal.id = uniqueModalId;
+        modal.style.cssText = `
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 300px;
+            background: white;
+            border: 2px solid #ccc;
+            border-radius: 10px;
+            padding: 15px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            z-index: 1000000;
+            text-align: center;
+        `;
+        modal.innerHTML = `<p>${message}</p>`;
+        document.body.appendChild(modal);
+    }
+
+    function closeModal() {
+        const modal = document.getElementById(uniqueModalId);
+        if (modal) {
+            console.log('Closing modal'); // Debugging log
+            modal.parentNode.removeChild(modal);
+        }
+    }
 
     
         // Function to observe page content and initialize UI
@@ -672,10 +792,8 @@ checkPageLoading();
             }
             closeExistingModal(); // Close any existing modal
             const info = processListingContent();
-            const distributionMethod = getDistributionMethod(info[0]); // Assuming all items have the same distribution method
-            const opsReviewText = 'Ops Review required due to a previously unpublished Unreal Engine format'; // Example text
-            const caseOwner = getCaseOwner();
-            displayInfoInModal(distributionMethod, info, opsReviewText, caseOwner);
+          
+          
         });
         section1.appendChild(getInfoButton);
 
@@ -1569,41 +1687,41 @@ checkPageLoading();
         const modal = createModal();
         const modalContent = document.createElement('div');
         modalContent.style.cssText = 'margin-top: 20px;';
-    
+        
         // Map case owner to title
         const ownerTitleMap = {
             'Fab Submission Support New': 'NEW SUBMISSION',
             'Fab Submission Support Update': 'UPDATE',
         };
-    
+        
         // Get the case number
         const caseNumber = getCaseNumber();
         console.log('Case Number:', caseNumber); // Debugging log
-    
+        
         // Find the aria-controls value associated with the active tab
         const tabElement = document.querySelector(`a[title^="${caseNumber}"]`);
         let isCancelled = false;
         let colorSquare = '';
-    
+        
         if (tabElement) {
             const ariaControls = tabElement.getAttribute('aria-controls');
             console.log('aria-controls:', ariaControls); // Debugging log
-    
+        
             if (ariaControls) {
                 // Locate the section element with the corresponding ID
                 const sectionElement = document.getElementById(ariaControls);
                 if (sectionElement) {
                     console.log('Section element found:', sectionElement); // Debugging log
-    
+        
                     // Check if "Cancelled" text is found within the section
                     isCancelled = findTextInShadow(sectionElement, 'Cancelled') !== null;
                     console.log('Is Cancelled:', isCancelled); // Debugging log
-    
+        
                     // Check for the img element with specific src attributes
                     const greenImg = findElementByAttribute(sectionElement, 'img', 'src', '/img/samples/color_green.gif');
                     const cyanImg = findElementByAttribute(sectionElement, 'img', 'src', '/servlet/servlet.FileDownload?file=0151a000002OTAA');
                     const yellowImg = findElementByAttribute(sectionElement, 'img', 'src', '/img/samples/color_yellow.gif');
-    
+        
                     if (greenImg.length > 0) {
                         colorSquare = '<span style="display: inline-block; width: 20px; height: 20px; background-color: green !important; margin-right: 5px; margin-bottom: -3px !important;" title="Seller Warning Indicator"></span>';
                     } else if (cyanImg.length > 0) {
@@ -1622,13 +1740,13 @@ checkPageLoading();
         } else {
             console.log('Tab element not found'); // Debugging log
         }
-    
+        
         // Add case owner title, case number, and "CANCELLED" if applicable
         const ownerTitleDiv = document.createElement('div');
         ownerTitleDiv.style.cssText = 'font-size: 20px; font-weight: bold; text-align: center; margin-bottom: 10px;';
         ownerTitleDiv.innerHTML = `${colorSquare}${caseOwner} | ${caseNumber}${isCancelled ? ' | <span style="color: red !important; font-weight: bold;">CANCELLED</span>' : ''}`;
         modalContent.appendChild(ownerTitleDiv);
-    
+        
         // Display Distribution Method
         const distributionDiv = document.createElement('div');
         distributionDiv.style.marginBottom = '20px';
@@ -1636,7 +1754,7 @@ checkPageLoading();
             <strong>Distribution Method:</strong> ${distributionMethod}
         `;
         modalContent.appendChild(distributionDiv);
-    
+        
         // Display rows with "YES" in the last column
         if (info.length === 0) {
             modalContent.innerHTML += '<strong>No rows with "YES" in the last column found.</strong>';
@@ -1644,7 +1762,7 @@ checkPageLoading();
             info.forEach((item) => {
                 const itemDiv = document.createElement('div');
                 itemDiv.style.marginBottom = '15px';
-    
+        
                 const copyButton = document.createElement('button');
                 copyButton.innerText = 'Copy App Name';
                 copyButton.style.cssText = `
@@ -1659,7 +1777,7 @@ checkPageLoading();
                 copyButton.addEventListener('click', () => {
                     copyToClipboard(item.appName, copyButton);
                 });
-    
+        
                 const p4vButton = document.createElement('button');
                 p4vButton.innerText = 'P4V data';
                 p4vButton.style.cssText = `
@@ -1680,7 +1798,7 @@ checkPageLoading();
                     };
                     copyToClipboard(JSON.stringify(p4vData, null, 2), p4vButton);
                 });
-    
+        
                 const hordeButton = document.createElement('button');
                 hordeButton.innerText = 'Horde';
                 hordeButton.style.cssText = `
@@ -1696,24 +1814,13 @@ checkPageLoading();
                 hordeButton.addEventListener('click', () => {
                     const appName = item.appName; // Get the specific app name
                     console.log('Horde button clicked for app:', appName); // Debugging log
-    
+        
                     const appData = getHordeAppData(appName); // Collect data for the specific app name
                     console.log('Collected app data:', appData); // Debugging log
-    
-                    const newTab = window.open('https://horde.devtools.epicgames.com/stream/ue5-marketplace?tab=General', '_blank');
-                    if (newTab) {
-                        console.log('New tab opened'); // Debugging log
-    
-                        // Use a small delay to ensure the new tab is fully loaded
-                        setTimeout(() => {
-                            console.log('Sending message to new tab'); // Debugging log
-                            newTab.postMessage(appData, '*');
-                        }, 2000); // Adjust the delay as needed
-                    } else {
-                        console.error('Failed to open new tab'); // Debugging log
-                    }
+        
+                    sendHordeAppData(appData); // Send the app data to Horde
                 });
-    
+        
                 itemDiv.innerHTML = `
                     <strong>App Name:</strong> ${item.appName}<br>
                     <strong>Engine Version:</strong> ${item.engineVersion}<br>
@@ -1722,14 +1829,14 @@ checkPageLoading();
                     <strong>Is New or Changed:</strong> ${item.isNewOrChanged}<br>
                     <strong>Download:</strong> ${item.downloadLink !== 'N/A' ? createDownloadLinks(item.downloadLink) : 'N/A'}<br>
                 `;
-    
+        
                 itemDiv.appendChild(copyButton);
                 itemDiv.appendChild(p4vButton);
                 itemDiv.appendChild(hordeButton);
                 modalContent.appendChild(itemDiv);
             });
         }
-    
+        
         // Display Ops Review information
         const opsReviewDiv = document.createElement('div');
         opsReviewDiv.style.marginTop = '20px';
@@ -1737,7 +1844,7 @@ checkPageLoading();
             <strong>Ops Review Information:</strong><br>${opsReviewText}
         `;
         modalContent.appendChild(opsReviewDiv);
-    
+        
         modal.appendChild(modalContent);
     }
 
@@ -2655,34 +2762,6 @@ placeholder.replaceWith(customMultiplierContainer);
         document.body.appendChild(modal);
     }
 
-    function getAppData() {
-        const data = [];
-        const info = processListingContent(); // Assuming this function returns the necessary info
-
-        if (!info || info.length === 0) {
-            console.error('No valid info found.');
-            return data;
-        }
-
-        info.forEach(item => {
-            const appName = item.appName;
-            const distributionMethod = getDistributionMethod(item);
-            const earliestUEVersion = getEarliestUEVersion(item.engineVersion);
-            const targetPlatforms = getTargetPlatforms(item.targetPlatforms);
-            const customEngineVersion = distributionMethod === 'CODE_PLUGIN' ? getCustomEngineVersion(earliestUEVersion) : null;
-
-            data.push({
-                appName,
-                distributionMethod,
-                earliestUEVersion,
-                targetPlatforms,
-                customEngineVersion
-            });
-        });
-
-        return data;
-    }
-
     function getDistributionMethod(item) {
         if (item.distributionMethod === 'Plugins') {
             return 'CODE_PLUGIN';
@@ -2729,33 +2808,32 @@ placeholder.replaceWith(customMultiplierContainer);
     function getHordeAppData(appName) {
         const data = [];
         const caseNumber = getCaseNumber();
-
+    
         // Retrieve Case Owner from the log if it exists
         const caseLog = JSON.parse(localStorage.getItem('sfCaseLog')) || [];
         const loggedCase = caseLog.find(entry => entry.caseNumber === caseNumber);
-
+    
         const caseOwner = loggedCase?.caseOwner || getCaseOwner(); // Use logged value or fallback
         console.log(`Using Case Owner: ${caseOwner}`);
-
+    
         console.log("Processing 'Listing Content' for Horde...");
-
-
+    
         const spans = getAllShadowElements(document.body, 'span.test-id__section-header-title');
         const listingSpan = Array.from(spans).find((span) => span.textContent.trim() === 'Listing Content');
-
+    
         if (!listingSpan) {
             console.error("Could not find the 'Listing Content' section.");
             alert("Could not find the 'Listing Content' section.");
             return data;
         }
-
+    
         const listingSection = listingSpan.closest('section');
         if (!listingSection) {
             console.error("'Listing Content' section found, but no parent section found.");
             alert("'Listing Content' section found, but no parent section found.");
             return data;
         }
-
+    
         // Extract the rows from the table
         const rows = listingSection.querySelectorAll('table tr');
         if (rows.length === 0) {
@@ -2763,7 +2841,7 @@ placeholder.replaceWith(customMultiplierContainer);
             alert("No rows found in the 'Listing Content' section.");
             return data;
         }
-
+    
         const info = Array.from(rows).slice(1).map((row) => {
             const cells = row.querySelectorAll('td');
             return {
@@ -2775,17 +2853,17 @@ placeholder.replaceWith(customMultiplierContainer);
                 isNewOrChanged: cells[6]?.textContent.trim() || 'N/A',
             };
         }).filter((item) => item.isNewOrChanged === 'YES' && item.appName === appName);
-
+    
         // Retrieve the Distribution Method
         const paragraphs = getAllShadowElements(document.body, 'p');
         const distributionMethodParagraph = paragraphs.find((p) => p.textContent.includes('Distribution Method:'));
         const distributionMethod = distributionMethodParagraph?.textContent.replace('Distribution Method:', '').trim() || 'No Distribution Method found.';
-
+    
         info.forEach(item => {
             const earliestUEVersion = getEarliestUEVersion(item.engineVersion);
             const targetPlatforms = getTargetPlatforms(item.targetPlatforms);
             const customEngineVersion = distributionMethod === 'CODE_PLUGIN' ? getCustomEngineVersion(earliestUEVersion) : null;
-
+    
             data.push({
                 appName: item.appName,
                 distributionMethod,
@@ -2794,10 +2872,21 @@ placeholder.replaceWith(customMultiplierContainer);
                 customEngineVersion
             });
         });
-
+    
         console.log('Collected app data for Horde:', data);
         return data;
     }
+
+    // Function to send Horde app data
+function sendHordeAppData(appData) {
+    const hordeUrl = 'https://horde.devtools.epicgames.com/stream/ue5-marketplace?tab=General';
+    const hordeWindow = window.open(hordeUrl, '_blank');
+
+    // Use a timeout to ensure the window is fully loaded before sending the message
+    setTimeout(() => {
+        hordeWindow.postMessage({ type: 'HORDE_APP_DATA', data: appData }, hordeUrl);
+    }, 2000); // Adjust the delay as needed
+}
 
 
     function getRelevantShiftIfExists() {
