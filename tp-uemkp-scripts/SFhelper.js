@@ -1,14 +1,14 @@
 // ==UserScript==
 // @name         Salesforce Helper for ModSquad UE MKTP
 // @namespace    http://tampermonkey.net/
-// @version      2.6.1
+// @version      2.6.2
 // @description  Process selected info, copy App Name, copy SF Case, and manage cases with floating buttons.
 // @author       Oscar O.
 // @match        https://epicgames.lightning.force.com/lightning/*
 // @grant        none
 // @downloadURL  https://raw.githubusercontent.com/212oscar/sforward/main/tp-uemkp-scripts/SFhelper.js
 // @updateURL    https://raw.githubusercontent.com/212oscar/sforward/main/tp-uemkp-scripts/SFhelper.js
-// @history      2.6.1 Fixed a bug where the Copy cases button from the shift report was using the proper case type.
+// @history      2.6.2 Fixed a bug where the Copy cases button was not using the proper case type.
 // @history      2.6 Added the version number to the collapsible button and refactored the checkPageLoading function to reuse existing function
 // @history      2.5 Added button reset all settings and fixed the Edit button (for the TRC templates) not showing up
 // ==/UserScript==
