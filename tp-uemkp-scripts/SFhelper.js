@@ -1227,7 +1227,7 @@ checkPageLoading();
         copyButton.addEventListener('click', () => {
             // Group cases by Case Type
             const groupedCases = caseLog.reduce((acc, entry) => {
-                const key = entry.caseOwner === 'Fab Submission Support New' ? 'New submissions' : 'Updates';
+                const key = entry.caseOwner === 'NEW SUBMISSIONS' ? 'New submissions' : 'Updates';
                 if (!acc[key]) acc[key] = [];
                 acc[key].push(entry.caseNumber);
                 return acc;
