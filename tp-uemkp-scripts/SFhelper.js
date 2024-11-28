@@ -1,54 +1,57 @@
 // ==UserScript==
 // @name         Salesforce Helper for ModSquad UE MKTP
 // @namespace    http://tampermonkey.net/
-// @version      2.5
+// @version      2.6
 // @description  Process selected info, copy App Name, copy SF Case, and manage cases with floating buttons.
 // @author       Oscar O.
 // @match        https://epicgames.lightning.force.com/lightning/*
 // @grant        none
 // @downloadURL  https://raw.githubusercontent.com/212oscar/sforward/main/tp-uemkp-scripts/SFhelper.js
 // @updateURL    https://raw.githubusercontent.com/212oscar/sforward/main/tp-uemkp-scripts/SFhelper.js
+// @history      2.5 Added button reset all settings and fixed the Edit button (for the TRC templates) not showing up
 // ==/UserScript==
 
 (function () {
     'use strict';
 
+    // Helper function to traverse Shadow DOM and find all matching elements don't modify
+    function getAllShadowElements(root, selector) {
+        const elements = [];
+        const traverse = (node) => {
+            if (!node) return;
+            if (node.shadowRoot) {
+                elements.push(...node.shadowRoot.querySelectorAll(selector));
+                Array.from(node.shadowRoot.children).forEach(traverse);
+            }
+            Array.from(node.children).forEach(traverse);
+        };
+        traverse(root);
+        return elements;
+    }
+
+     // Extract version number from metadata block
+     const version = GM_info.script.version;
+
     let reminderTimers = []; // Define the reminderTimers array
     let isPageLoading = true; // Flag to check if the page is still loading
     let pageNotLoadedMessage = 'Please wait for the page to load or Open a case first'; // Message to display when the page is still loading
 
-    // Function to check if the page is still loading will check for key elements (dd.slds-item_detail.slds-truncate) 
-    function checkPageLoading() {
-        // Helper function to traverse Shadow DOM
-        function getAllShadowElements(root, selector) {
-            const elements = [];
-            const traverse = (node) => {
-                if (!node) return;
-                if (node.shadowRoot) {
-                    elements.push(...node.shadowRoot.querySelectorAll(selector));
-                    Array.from(node.shadowRoot.children).forEach(traverse);
-                }
-                Array.from(node.children).forEach(traverse);
-            };
-            traverse(root);
-            return elements;
-        }
+    // Function to check if the page is fully loaded
+function checkPageLoading() {
+    const selector = 'dd.slds-item_detail.slds-truncate'; // Your key selector
     
-        const selector = 'dd.slds-item_detail.slds-truncate'; // Your key selector
-    
-        // Check if elements matching the selector exist
-        const elements = getAllShadowElements(document.body, selector);
-    
-        if (elements.length > 0) {
-            console.log('Page is fully loaded');
-            isPageLoading = false; // Set the flag to false when elements are detected
-        } else {
-            console.log('Page is still loading...');
-            isPageLoading = true; // Set the flag to true if elements are not found
-        }
-    }
-    
+    // Use the reusable helper function
+    const elements = getAllShadowElements(document.body, selector);
 
+    if (elements.length > 0) {
+        console.log('Page is fully loaded');
+        isPageLoading = false; // Set the flag to false when elements are detected
+    } else {
+        console.log('Page is still loading...');
+        isPageLoading = true; // Set the flag to true if elements are not found
+    }
+}
+    
 // Call the function to start checking
 checkPageLoading();
 
@@ -105,20 +108,7 @@ checkPageLoading();
         }, 2000);
     }
 
-    // Helper function to traverse Shadow DOM and find all matching elements
-    function getAllShadowElements(root, selector) {
-        const elements = [];
-        const traverse = (node) => {
-            if (!node) return;
-            if (node.shadowRoot) {
-                elements.push(...node.shadowRoot.querySelectorAll(selector));
-                Array.from(node.shadowRoot.children).forEach(traverse);
-            }
-            Array.from(node.children).forEach(traverse);
-        };
-        traverse(root);
-        return elements;
-    }
+    
 
     // Function to find text in Shadow DOM
     function findTextInShadow(root, searchText) {
@@ -964,7 +954,7 @@ checkPageLoading();
 
     function createCollapseButton() {
         const button = document.createElement('button');
-        button.innerText = 'SF helper 0.1.3 ▲';
+        button.innerHTML = `SF helper ${version} ▲`; // Use backticks for template literals
         button.style.cssText = `
             position: fixed;
             top: 50px;
@@ -1002,10 +992,10 @@ checkPageLoading();
                 if (section.style.display === 'none') {
                     section.style.display = 'block';
                     section.style.top = section.dataset.originalTop; // Restore original position
-                    button.innerText = 'SF helper 0.1.3 ▲';
+                    button.innerText = `SF helper ${version} ▲`;
                 } else {
                     section.style.display = 'none';
-                    button.innerText = 'SF helper 0.1.3 ▼';
+                    button.innerText = `SF helper ${version} ▲`;
                 }
             });
             button.appendChild(linkIcon); // Re-append the link icon
