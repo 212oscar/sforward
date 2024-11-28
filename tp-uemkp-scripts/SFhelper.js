@@ -8,6 +8,7 @@
 // @grant        none
 // @downloadURL  https://raw.githubusercontent.com/212oscar/sforward/main/tp-uemkp-scripts/SFhelper.js
 // @updateURL    https://raw.githubusercontent.com/212oscar/sforward/main/tp-uemkp-scripts/SFhelper.js
+// @history      2.6 Added the version number to the collapsible button and refactored the checkPageLoading function to reuse existing function
 // @history      2.5 Added button reset all settings and fixed the Edit button (for the TRC templates) not showing up
 // ==/UserScript==
 
