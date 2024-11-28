@@ -21,7 +21,7 @@
     'use strict';
 
     const SALESFORCE_URL = 'https://epicgames.lightning.force.com';
-    const TANDA_URL = 'https://my.tanda.co/staff?getdata=true';
+    const TANDA_URL = 'https://my.tanda.co/staff';
 
     // Function to show a modal when adding Shifts from tanda page
     function showTandaModal() {
