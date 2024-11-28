@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Salesforce Helper for ModSquad UE MKTP
 // @namespace    http://tampermonkey.net/
-// @version      2.8.0
+// @version      2.8.1
 // @description  Process selected info, copy App Name, copy SF Case, and manage cases with floating buttons.
 // @author       Oscar O.
 // @match        https://epicgames.lightning.force.com/lightning/*
@@ -118,7 +118,7 @@
             showHordeModal('Please wait, getting app info');
             fillHordeForm(data);
             }
-            }, 2000);
+            }, 2000); // 2 seconds to load the page properly
     });
 
 
@@ -128,7 +128,7 @@
         document.querySelector('#id__41').click();
        
 
-        // Allow 3 seconds to load the page properly
+        // Start filling the form after a delay
         setTimeout(() => {
             
             data.forEach(item => {
@@ -158,8 +158,8 @@
                 } else {
                     console.error('Start Job button not found');
                 }
-            }, 800);
-        }, 3000); // Adjust the delay as needed
+            }, 900);
+        }, 3000); // Delay to allow the form to load properly
     }
 
     function fillInput(labelText, value) {
@@ -1155,6 +1155,8 @@ checkPageLoading();
             }, clockOutTimeout);
             reminderTimers.push(clockOutTimerId);
         }
+
+        //TODO Add a checkmark to the clockout reminders modal to clear the case log
     }
 
     function clearShiftReminders() {
