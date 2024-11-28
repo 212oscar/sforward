@@ -1,13 +1,15 @@
 // ==UserScript==
 // @name         Salesforce Helper for ModSquad UE MKTP
 // @namespace    http://tampermonkey.net/
-// @version      2.6.2
+// @version      2.7.0
 // @description  Process selected info, copy App Name, copy SF Case, and manage cases with floating buttons.
 // @author       Oscar O.
 // @match        https://epicgames.lightning.force.com/lightning/*
+// @match        https://my.tanda.co/staff*
 // @grant        none
 // @downloadURL  https://raw.githubusercontent.com/212oscar/sforward/main/tp-uemkp-scripts/SFhelper.js
 // @updateURL    https://raw.githubusercontent.com/212oscar/sforward/main/tp-uemkp-scripts/SFhelper.js
+// @history      2.7.0 New easier way to add/update your shifts!
 // @history      2.6.2 Fixed a bug where the Copy cases button was not using the proper case type.
 // @history      2.6 Added the version number to the collapsible button and refactored the checkPageLoading function to reuse existing function
 // @history      2.5 Added button reset all settings and fixed the Edit button (for the TRC templates) not showing up
@@ -15,6 +17,175 @@
 
 (function () {
     'use strict';
+
+    const SALESFORCE_URL = 'https://epicgames.lightning.force.com';
+    const TANDA_URL = 'https://my.tanda.co/staff?getdata=true';
+
+    // Function to show a modal when adding Shifts from tanda page
+    function showTandaModal() {
+        const modal = document.createElement('div');
+        modal.id = 'custom-modal';
+        modal.style.cssText = `
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            max-width: 300px;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 20px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            z-index: 10000;
+        `;
+
+        const messageDiv = document.createElement('div');
+        messageDiv.innerText = 'The Tanda page will be opened so we can retrieve your current shifts. You need to be logged in already with Modsquad OKTA. If you are ready, click OK.';
+        modal.appendChild(messageDiv);
+
+        const buttonContainer = document.createElement('div');
+        buttonContainer.style.cssText = `
+            display: flex;
+            justify-content: space-between;
+            margin-top: 10px;
+        `;
+
+        const okButton = document.createElement('button');
+        okButton.innerText = 'OK';
+        okButton.style.cssText = `
+            padding: 10px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        `;
+        okButton.addEventListener('click', () => {
+            window.open(TANDA_URL, '_blank');
+            modal.remove();
+        });
+        buttonContainer.appendChild(okButton);
+
+        const cancelButton = document.createElement('button');
+        cancelButton.innerText = 'Cancel';
+        cancelButton.style.cssText = `
+            padding: 10px;
+            background: #f44336;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        `;
+        cancelButton.addEventListener('click', () => {
+            modal.remove();
+        });
+        buttonContainer.appendChild(cancelButton);
+
+        modal.appendChild(buttonContainer);
+        document.body.appendChild(modal);
+    }
+
+    // Listen for shift data from Tanda
+    window.addEventListener('message', (event) => {
+        if (event.origin !== 'https://my.tanda.co') return;
+
+        const { type, data } = event.data;
+        if (type === 'SHIFT_DATA') {
+            console.log('Received shift data from Tanda:', data);
+            const parsedEvents = parseEvents(data);
+            localStorage.setItem('parsedTandaScheduleData', JSON.stringify(parsedEvents));
+            alert('Shift data received and stored successfully.');
+            location.reload(); // Reload the page to apply changes
+            
+        }
+    });
+
+    
+        // Function to observe page content and initialize UI
+function observePageContent() {
+    const observer = new MutationObserver(() => {
+        if (document.querySelector('body')) { // Ensure the body is fully loaded
+            observer.disconnect(); // Stop observing once the content is ready
+            if (window.location.href.startsWith(SALESFORCE_URL)) {
+                console.log('Salesforce page detected. Initializing UI...');
+                initializeUI(); // Initialize the buttons
+            }
+        }
+    });
+
+    observer.observe(document.documentElement, { childList: true, subtree: true });
+}
+
+// Start observing the page content only if not on Tanda URL
+if (!window.location.href.startsWith(TANDA_URL)) {
+    observePageContent();
+}
+
+    // Tanda-specific logic
+if (window.location.href.startsWith(TANDA_URL)) {
+    const referer = document.referrer;
+    const isFromSalesforce = referer.startsWith(SALESFORCE_URL);
+
+    if (isFromSalesforce) {
+        showAlertModal('Please wait, we are getting your shifts!', false); // Show the modal without auto-close
+
+        const tandaScript = async () => {
+            try {
+                const userIdElement = document.querySelector('[data-store-staff-filters-current-user-id-value]');
+                const tandaID = userIdElement?.getAttribute('data-store-staff-filters-current-user-id-value');
+
+                if (!tandaID) {
+                    alert('Failed to retrieve Tanda ID.');
+                    return;
+                }
+
+                console.log('Tanda ID:', tandaID);
+
+                const initialUrl = `https://my.tanda.co/rosters/for/${tandaID}`;
+                console.log(`Fetching content from: ${initialUrl}`);
+
+                // Fetch the initial page content
+                const response = await fetch(initialUrl, { credentials: 'include' });
+                const htmlText = await response.text();
+
+                // Parse the page to find the embedded URL
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(htmlText, 'text/html');
+                const spanElement = doc.querySelector('span[data-clipboard-text]');
+                const embeddedUrl = spanElement?.getAttribute('data-clipboard-text');
+
+                if (!embeddedUrl) {
+                    alert('No URL found in the data-clipboard-text attribute.');
+                    return;
+                }
+
+                console.log('Found embedded URL:', embeddedUrl);
+
+                // Fetch the content from the embedded URL
+                const embeddedResponse = await fetch(embeddedUrl, { credentials: 'include' });
+                const shiftData = await embeddedResponse.text();
+
+                console.log('Shift data retrieved successfully:', shiftData);
+
+                // Close the modal
+                const existingModal = document.getElementById('custom-modal');
+                if (existingModal) {
+                    existingModal.remove();
+                }
+
+                // Send shift data to the Salesforce tab
+                window.opener.postMessage({ type: 'SHIFT_DATA', data: shiftData }, SALESFORCE_URL);
+
+                alert('Shifts added. Returning to Salesforce.');
+                window.close();
+            } catch (error) {
+                console.error('Error:', error);
+                alert('An error occurred while fetching shift data.');
+            }
+        };
+
+        tandaScript();
+    }
+}
 
     // Helper function to traverse Shadow DOM and find all matching elements don't modify
     function getAllShadowElements(root, selector) {
@@ -57,51 +228,52 @@ function checkPageLoading() {
 // Call the function to start checking
 checkPageLoading();
 
-    // Function to show a modal with a message
-    function showAlertModal(message) {
-        const modal = document.createElement('div');
-        modal.id = 'custom-modal';
-        modal.style.cssText = `
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: white;
-            padding: 20px;
-            border: 1px solid #ccc;
-            border-radius: 5px;
-            z-index: 10000;
-        `;
+   // Function to show a modal with a message if the page is not fully loaded
+   function showAlertModal(message, autoClose = true) {
+    const modal = document.createElement('div');
+    modal.id = 'custom-modal';
+    modal.style.cssText = `
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: white;
+        padding: 20px;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+        z-index: 10000;
+    `;
 
-        const messageDiv = document.createElement('div');
-        messageDiv.innerText = message;
-        modal.appendChild(messageDiv);
+    const messageDiv = document.createElement('div');
+    messageDiv.innerText = message;
+    modal.appendChild(messageDiv);
 
-        const buttonContainer = document.createElement('div');
-        buttonContainer.style.cssText = `
-            display: flex;
-            justify-content: center;
-            margin-top: 10px;
-        `;
+    const buttonContainer = document.createElement('div');
+    buttonContainer.style.cssText = `
+        display: flex;
+        justify-content: center;
+        margin-top: 10px;
+    `;
 
-        const okButton = document.createElement('button');
-        okButton.innerText = 'Ok';
-        okButton.style.cssText = `
-            padding: 10px;
-            background: yellow !important;
-            color: black !important;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-        `;
-        okButton.addEventListener('click', () => {
-            document.body.removeChild(modal);
-        });
-        buttonContainer.appendChild(okButton);
+    const okButton = document.createElement('button');
+    okButton.innerText = 'Ok';
+    okButton.style.cssText = `
+        padding: 10px;
+        background: yellow !important;
+        color: black !important;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+    `;
+    okButton.addEventListener('click', () => {
+        document.body.removeChild(modal);
+    });
+    buttonContainer.appendChild(okButton);
 
-        modal.appendChild(buttonContainer);
-        document.body.appendChild(modal);
+    modal.appendChild(buttonContainer);
+    document.body.appendChild(modal);
 
+    if (autoClose) {
         // Automatically close the modal after 2 seconds
         setTimeout(() => {
             if (document.body.contains(modal)) {
@@ -109,6 +281,7 @@ checkPageLoading();
             }
         }, 2000);
     }
+}
 
     
 
@@ -194,6 +367,8 @@ checkPageLoading();
             console.log('Shift section closed.');
         }
     }
+
+
 
        // Define the TRC templates IDs
     const templateSheetIds = new Map([
@@ -648,14 +823,9 @@ checkPageLoading();
 
         // Create the "Add my shift" button (Purple)
         const addShiftButton = createButton('Add my shift', '#6f42c1', () => {
-            showShiftDataInputModal('Please go to your Tanda schedule URL (https://my.tanda.co/staff), click on your name / Attendance points / Schedules, copy all the content from the iCal link, and paste it here:', (tandaData) => {
-                if (tandaData) {
-                    const parsedEvents = parseEvents(tandaData);
-                    localStorage.setItem('parsedTandaScheduleData', JSON.stringify(parsedEvents));
-                    location.reload(); // Reload the page to initialize the shift info
-                }
-            });
+            showTandaModal();
         });
+
 
         if (!localStorage.getItem('parsedTandaScheduleData')) {
             section3.appendChild(addShiftButton);
@@ -1669,17 +1839,6 @@ checkPageLoading();
         }, 500); // Check every 500ms
     }
 
-    function observePageContent() {
-        const observer = new MutationObserver(() => {
-            if (document.querySelector('body')) { // Ensure the body is fully loaded
-                observer.disconnect(); // Stop observing once the content is ready
-                initializeUI(); // Initialize the buttons
-            }
-        });
-
-        observer.observe(document.documentElement, { childList: true, subtree: true });
-    }
-
     // Function to convert Google Drive links into direct download links
 
     function createDownloadLinks(downloadLink) {
@@ -1966,15 +2125,9 @@ checkPageLoading();
         document.body.appendChild(shiftSection);
         
 
-        // Add the "Update Shifts" button to the top right corner of the modal
+        // Create the "Update Shifts" button (Blue)
         const updateShiftsButton = createButton('Update Shifts', '#007bff', () => {
-            showShiftDataInputModal('Please go to your Tanda schedule URL (https://my.tanda.co/staff), click on your name / Attendance points / Schedules, copy all the content, and paste it here:', (tandaData) => {
-                if (tandaData) {
-                    const parsedEvents = parseEvents(tandaData);
-                    localStorage.setItem('parsedTandaScheduleData', JSON.stringify(parsedEvents));
-                    location.reload(); // Reload the page to update the shift info
-                }
-            });
+            showTandaModal();
         });
         updateShiftsButton.style.cssText += `
             position: absolute;
@@ -2663,5 +2816,6 @@ placeholder.replaceWith(customMultiplierContainer);
         });
     }
 
-    observePageContent(); // Start observing the page
+    
+    
 })();
