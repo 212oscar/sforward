@@ -32,21 +32,67 @@
             margin-top: 120px;
             font-size: 0.8em;
         }
+        #loginMessage {
+            background-color: #f4f4f4; /* Light gray background */
+            border: 2px solid #ffcc00; /* Yellow border */
+            color: #333; /* Dark text color */
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 10%;
+            font-family: 'Arial', sans-serif;
+            text-align: center;
+        }
+
         #loginButton {
             padding: 10px 20px;
             font-size: 1em;
             margin-top: 20px;
             display: block;
         }
+        #creating img {
+            display: block;
+            margin: 0 auto;
+        }
+        #creating {
+            display: none; /* Hide by default */
+        }
+        #logoutButton {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background-color: red;
+            color: white;
+            font-size: 0.8em;
+            padding: 5px 10px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            display: none; /* Initially hidden */
+        }
     </style>
     <script>
         let accessToken;
 
+        // Logout function to clear the token
+        function logout() {
+            localStorage.removeItem('googleAccessToken'); // Remove the token
+            alert('You have been logged out.');
+            // Refresh the page to reset the UI
+            window.location.reload();
+        }
+
         // Load the Google API client
         async function loadGAPI() {
-            await gapi.load('client', async () => {
-                await gapi.client.init({
-                    discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest'],
+            return new Promise((resolve, reject) => {
+                gapi.load('client', async () => {
+                    try {
+                        await gapi.client.init({
+                            discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest'],
+                        });
+                        resolve();
+                    } catch (error) {
+                        reject(error);
+                    }
                 });
             });
         }
@@ -58,7 +104,20 @@
                 scope: 'https://www.googleapis.com/auth/drive.file',
                 callback: (tokenResponse) => {
                     accessToken = tokenResponse.access_token;
-                    createTRC(); // Call the TRC creation function once authenticated
+                    localStorage.setItem('googleAccessToken', accessToken); // Store token
+
+                    // Hide login message and button after successful login
+                    document.getElementById('loginMessage').style.display = 'none';
+                    document.getElementById('loginButton').style.display = 'none';
+
+                    // Show logout button
+                    document.getElementById('logoutButton').style.display = 'block';
+
+                    // Show the creating message
+                    document.getElementById('creating').style.display = 'block';
+
+                    // Proceed to create the TRC
+                    createTRC();
                 },
             });
 
@@ -66,6 +125,42 @@
             document.getElementById('loginButton').addEventListener('click', () => {
                 client.requestAccessToken();
             });
+        }
+
+        // Display productTitle and caseNumber
+        function displayParams() {
+            const params = new URLSearchParams(window.location.search);
+            const productTitle = params.get('productTitle');
+            const caseNumber = params.get('caseNumber');
+            document.getElementById('productTitle').textContent = productTitle;
+            document.getElementById('caseNumber').textContent = caseNumber;
+        }
+
+        // Check if the user is already logged in
+        async function checkLoginStatus() {
+            const storedToken = localStorage.getItem('googleAccessToken');
+            const logoutButton = document.getElementById('logoutButton'); // Get logout button
+
+            if (storedToken) {
+                accessToken = storedToken; // Use stored token
+                try {
+                    await loadGAPI(); // Reinitialize GAPI before making requests
+                    document.getElementById('loginMessage').style.display = 'none';
+                    document.getElementById('loginButton').style.display = 'none';
+                    logoutButton.style.display = 'block'; // Show logout button
+                    document.getElementById('creating').style.display = 'block';
+                    createTRC(); // Proceed to create the TRC
+                } catch (error) {
+                    console.error('Error initializing GAPI:', error);
+                    alert('Failed to initialize Google API. Please try logging in again.');
+                    localStorage.removeItem('googleAccessToken'); // Clear invalid token
+                    document.getElementById('loginMessage').style.display = 'block';
+                    document.getElementById('loginButton').style.display = 'block';
+                    logoutButton.style.display = 'none'; // Hide logout button
+                }
+            } else {
+                logoutButton.style.display = 'none'; // Hide logout button if not logged in
+            }
         }
 
         // Create the TRC sheet
@@ -98,25 +193,40 @@
                 }
             } catch (error) {
                 console.error('Error creating TRC:', error);
-                alert('Failed to create TRC document');
+                alert('Failed to create TRC document. Please check your permissions or try logging in again.');
+                localStorage.removeItem('googleAccessToken'); // Clear token if an error occurs
             }
         }
 
         // Initialize the app when the page loads
         window.onload = async () => {
-            await loadGAPI();
-            initClient();
+            displayParams(); // Display productTitle and caseNumber
+            try {
+                await loadGAPI(); // Initialize GAPI on load
+                checkLoginStatus(); // Check if the user is already logged in
+            } catch (error) {
+                console.error('Error loading GAPI:', error);
+                alert('Failed to load Google API. Please refresh the page.');
+            }
+            initClient(); // Set up the GIS client
         };
     </script>
 </head>
 <body>
+    <button id="logoutButton" onclick="logout()">Logout</button>
+
     <h1>Creating TRC for the Product: <br><span style="color:yellow" id="productTitle"></span> <br><br>
       SF case: <br><span style="color:yellow" id="caseNumber"></span></h1>
     
-    <button id="loginButton">Login with Google</button>
-    
-    <img src="https://media1.tenor.com/m/SB66UNkGc0gAAAAd/sloth-slow.gif" alt="Loading GIF" style="max-height: 200px;">
-    <p>This shouldn't take more than 15 seconds</p>
+    <div id="loginMessage">Please login with your Google Modsquad account to allow the creation of TRCs on your name! You only need to do this one time :)</div>
+
+    <button id="loginButton">Login with Google</button><br>
+   
+    <div id="creating">
+        <p>Building your TRC :)</p><br>
+        <img src="https://media1.tenor.com/m/SB66UNkGc0gAAAAd/sloth-slow.gif" alt="Loading GIF" style="max-height: 200px;">
+        <p>This shouldn't take more than 15 seconds</p>
+    </div>
     <div style="color: gray" class="footer">by Oscar O.</div>
 </body>
 </html>
