@@ -1,15 +1,17 @@
 // ==UserScript==
 // @name         Salesforce Helper for ModSquad UE MKTP
 // @namespace    http://tampermonkey.net/
-// @version      2.8.1
+// @version      2.8.2
 // @description  Process selected info, copy App Name, copy SF Case, and manage cases with floating buttons.
 // @author       Oscar O.
 // @match        https://epicgames.lightning.force.com/lightning/*
 // @match        https://my.tanda.co/staff*
 // @match        https://horde.devtools.epicgames.com/stream/ue5-marketplace?tab=General
-// @grant        none
+// @grant        GM_xmlhttpRequest
+// @connect      fab-admin.daec.live.use1a.on.epicgames.com
 // @downloadURL  https://raw.githubusercontent.com/212oscar/sforward/main/tp-uemkp-scripts/SFhelper.js
 // @updateURL    https://raw.githubusercontent.com/212oscar/sforward/main/tp-uemkp-scripts/SFhelper.js
+// @history      2.8.2 Added the Fab Preview Link!!!, now you can get the FAB preview in the Get info button.
 // @history      2.8.0 Autohorde when clicking the horde button! before I used another script for this but I integrated it here, so let me know of any issues.
 // @history      2.7.0 New easier way to add/update your shifts!
 // @history      2.6.2 Fixed a bug where the Copy cases button was not using the proper case type.
@@ -21,7 +23,7 @@
     'use strict';
 
     const SALESFORCE_URL = 'https://epicgames.lightning.force.com';
-    const TANDA_URL = 'https://my.tanda.co/staff';
+    const TANDA_URL = 'https://my.tanda.co/staff?getdata=true';
 
     // Function to show a modal when adding Shifts from tanda page
     function showTandaModal() {
@@ -118,7 +120,7 @@
             showHordeModal('Please wait, getting app info');
             fillHordeForm(data);
             }
-            }, 2000); // 2 seconds to load the page properly
+            }, 2000);
     });
 
 
@@ -128,7 +130,7 @@
         document.querySelector('#id__41').click();
        
 
-        // Start filling the form after a delay
+        // Allow 3 seconds to load the page properly
         setTimeout(() => {
             
             data.forEach(item => {
@@ -158,8 +160,8 @@
                 } else {
                     console.error('Start Job button not found');
                 }
-            }, 900);
-        }, 3000); // Delay to allow the form to load properly
+            }, 800);
+        }, 3000); // Adjust the delay as needed
     }
 
     function fillInput(labelText, value) {
@@ -437,6 +439,30 @@ checkPageLoading();
         return foundNode;
     }
 
+    // Secondary function to find text in Shadow DOM, used to retrieve the FAB url
+
+    function findTextInShadowDOM(root, searchText) {
+        let foundNode = null;
+
+        const traverse = (node) => {
+            if (!node) return;
+
+            if (node.nodeType === Node.TEXT_NODE && node.textContent.includes(searchText)) {
+                foundNode = node;
+                return;
+            }
+
+            if (node.shadowRoot) {
+                Array.from(node.shadowRoot.childNodes).forEach(traverse);
+            }
+
+            Array.from(node.childNodes).forEach(traverse);
+        };
+
+        traverse(root);
+        return foundNode;
+    }
+
     // Helper function to find an element by attribute in Shadow DOM
 
     function findElementByAttribute(root, tagName, attribute, value) {
@@ -488,7 +514,63 @@ checkPageLoading();
         }
     }
 
+//Function to get the FAB url
 
+    async function getFabURL(caseNumber) {
+        const tabElement = document.querySelector(`a[title^="${caseNumber}"]`);
+        if (!tabElement) {
+            console.error('Tab element not found.');
+            return null;
+        }
+    
+        const ariaControls = tabElement.getAttribute('aria-controls');
+        if (!ariaControls) {
+            console.error('aria-controls attribute not found.');
+            return null;
+        }
+    
+        const sectionElement = document.getElementById(ariaControls);
+        if (!sectionElement) {
+            console.error('Section element not found.');
+            return null;
+        }
+    
+        const searchText = "https://fab-admin.daec.live.use1a.on.epicgames.com/admin/listings/listing/";
+        const node = findTextInShadowDOM(sectionElement, searchText);
+    
+        if (!node) {
+            console.error('Django URL not found.');
+            return null;
+        }
+    
+        const djangoURL = node.textContent.trim();
+        console.log('Django URL:', djangoURL);
+    
+        return new Promise((resolve, reject) => {
+            GM_xmlhttpRequest({
+                method: 'GET',
+                url: djangoURL,
+                onload: function (response) {
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(response.responseText, 'text/html');
+                    const fabLink = doc.querySelector('a.link[href*="/portal/listings/"][href*="/preview"]');
+    
+                    if (fabLink) {
+                        const fabURL = `https://fab-admin.daec.live.use1a.on.epicgames.com${fabLink.getAttribute('href')}`;
+                        console.log('Final FAB URL:', fabURL);
+                        resolve(fabURL);
+                    } else {
+                        console.error('PDP Preview link not found.');
+                        resolve(null);
+                    }
+                },
+                onerror: function () {
+                    console.error('Failed to fetch Django URL content.');
+                    reject('Failed to fetch Django URL content.');
+                }
+            });
+        });
+    }
 
        // Define the TRC templates IDs
     const templateSheetIds = new Map([
@@ -1155,8 +1237,6 @@ checkPageLoading();
             }, clockOutTimeout);
             reminderTimers.push(clockOutTimerId);
         }
-
-        //TODO Add a checkmark to the clockout reminders modal to clear the case log
     }
 
     function clearShiftReminders() {
@@ -1685,45 +1765,39 @@ checkPageLoading();
         displayInfoInModal(distributionMethod, info, opsReviewText, getCaseOwner());
     }
 
-    function displayInfoInModal(distributionMethod, info, opsReviewText, caseOwner) {
+    async function displayInfoInModal(distributionMethod, info, opsReviewText, caseOwner) {
         const modal = createModal();
         const modalContent = document.createElement('div');
         modalContent.style.cssText = 'margin-top: 20px;';
-        
-        // Map case owner to title
-        const ownerTitleMap = {
-            'Fab Submission Support New': 'NEW SUBMISSION',
-            'Fab Submission Support Update': 'UPDATE',
-        };
-        
+    
         // Get the case number
         const caseNumber = getCaseNumber();
         console.log('Case Number:', caseNumber); // Debugging log
-        
+    
         // Find the aria-controls value associated with the active tab
         const tabElement = document.querySelector(`a[title^="${caseNumber}"]`);
         let isCancelled = false;
         let colorSquare = '';
-        
+    
         if (tabElement) {
             const ariaControls = tabElement.getAttribute('aria-controls');
             console.log('aria-controls:', ariaControls); // Debugging log
-        
+    
             if (ariaControls) {
                 // Locate the section element with the corresponding ID
                 const sectionElement = document.getElementById(ariaControls);
                 if (sectionElement) {
                     console.log('Section element found:', sectionElement); // Debugging log
-        
+    
                     // Check if "Cancelled" text is found within the section
                     isCancelled = findTextInShadow(sectionElement, 'Cancelled') !== null;
                     console.log('Is Cancelled:', isCancelled); // Debugging log
-        
+    
                     // Check for the img element with specific src attributes
                     const greenImg = findElementByAttribute(sectionElement, 'img', 'src', '/img/samples/color_green.gif');
                     const cyanImg = findElementByAttribute(sectionElement, 'img', 'src', '/servlet/servlet.FileDownload?file=0151a000002OTAA');
                     const yellowImg = findElementByAttribute(sectionElement, 'img', 'src', '/img/samples/color_yellow.gif');
-        
+    
                     if (greenImg.length > 0) {
                         colorSquare = '<span style="display: inline-block; width: 20px; height: 20px; background-color: green !important; margin-right: 5px; margin-bottom: -3px !important;" title="Seller Warning Indicator"></span>';
                     } else if (cyanImg.length > 0) {
@@ -1742,13 +1816,13 @@ checkPageLoading();
         } else {
             console.log('Tab element not found'); // Debugging log
         }
-        
+    
         // Add case owner title, case number, and "CANCELLED" if applicable
         const ownerTitleDiv = document.createElement('div');
         ownerTitleDiv.style.cssText = 'font-size: 20px; font-weight: bold; text-align: center; margin-bottom: 10px;';
         ownerTitleDiv.innerHTML = `${colorSquare}${caseOwner} | ${caseNumber}${isCancelled ? ' | <span style="color: red !important; font-weight: bold;">CANCELLED</span>' : ''}`;
         modalContent.appendChild(ownerTitleDiv);
-        
+    
         // Display Distribution Method
         const distributionDiv = document.createElement('div');
         distributionDiv.style.marginBottom = '20px';
@@ -1756,7 +1830,7 @@ checkPageLoading();
             <strong>Distribution Method:</strong> ${distributionMethod}
         `;
         modalContent.appendChild(distributionDiv);
-        
+    
         // Display rows with "YES" in the last column
         if (info.length === 0) {
             modalContent.innerHTML += '<strong>No rows with "YES" in the last column found.</strong>';
@@ -1764,7 +1838,7 @@ checkPageLoading();
             info.forEach((item) => {
                 const itemDiv = document.createElement('div');
                 itemDiv.style.marginBottom = '15px';
-        
+    
                 const copyButton = document.createElement('button');
                 copyButton.innerText = 'Copy App Name';
                 copyButton.style.cssText = `
@@ -1779,7 +1853,7 @@ checkPageLoading();
                 copyButton.addEventListener('click', () => {
                     copyToClipboard(item.appName, copyButton);
                 });
-        
+    
                 const p4vButton = document.createElement('button');
                 p4vButton.innerText = 'P4V data';
                 p4vButton.style.cssText = `
@@ -1800,7 +1874,7 @@ checkPageLoading();
                     };
                     copyToClipboard(JSON.stringify(p4vData, null, 2), p4vButton);
                 });
-        
+    
                 const hordeButton = document.createElement('button');
                 hordeButton.innerText = 'Horde';
                 hordeButton.style.cssText = `
@@ -1816,13 +1890,13 @@ checkPageLoading();
                 hordeButton.addEventListener('click', () => {
                     const appName = item.appName; // Get the specific app name
                     console.log('Horde button clicked for app:', appName); // Debugging log
-        
+    
                     const appData = getHordeAppData(appName); // Collect data for the specific app name
                     console.log('Collected app data:', appData); // Debugging log
-        
+    
                     sendHordeAppData(appData); // Send the app data to Horde
                 });
-        
+    
                 itemDiv.innerHTML = `
                     <strong>App Name:</strong> ${item.appName}<br>
                     <strong>Engine Version:</strong> ${item.engineVersion}<br>
@@ -1831,14 +1905,14 @@ checkPageLoading();
                     <strong>Is New or Changed:</strong> ${item.isNewOrChanged}<br>
                     <strong>Download:</strong> ${item.downloadLink !== 'N/A' ? createDownloadLinks(item.downloadLink) : 'N/A'}<br>
                 `;
-        
+    
                 itemDiv.appendChild(copyButton);
                 itemDiv.appendChild(p4vButton);
                 itemDiv.appendChild(hordeButton);
                 modalContent.appendChild(itemDiv);
             });
         }
-        
+    
         // Display Ops Review information
         const opsReviewDiv = document.createElement('div');
         opsReviewDiv.style.marginTop = '20px';
@@ -1846,8 +1920,18 @@ checkPageLoading();
             <strong>Ops Review Information:</strong><br>${opsReviewText}
         `;
         modalContent.appendChild(opsReviewDiv);
-        
+    
         modal.appendChild(modalContent);
+    
+        // Append the modal to the document body
+        document.body.appendChild(modal);
+    
+        // Fetch the FAB URL and update the modal
+        getFabURL(caseNumber).then(fabURL => {
+            if (fabURL) {
+                ownerTitleDiv.innerHTML += ` | <a href="${fabURL}" target="_blank">Fab Preview</a>`;
+            }
+        });
     }
 
     function getCaseIdFromURL() {
@@ -2880,17 +2964,17 @@ placeholder.replaceWith(customMultiplierContainer);
     }
 
     // Function to send Horde app data
-function sendHordeAppData(appData) {
-    const hordeUrl = 'https://horde.devtools.epicgames.com/stream/ue5-marketplace?tab=General';
-    const hordeWindow = window.open(hordeUrl, '_blank');
+    function sendHordeAppData(appData) {
+        const hordeUrl = 'https://horde.devtools.epicgames.com/stream/ue5-marketplace?tab=General';
+        const hordeWindow = window.open(hordeUrl, '_blank');
 
     // Use a timeout to ensure the window is fully loaded before sending the message
-    setTimeout(() => {
-        hordeWindow.postMessage({ type: 'HORDE_APP_DATA', data: appData }, hordeUrl);
-    }, 2000); // Adjust the delay as needed
-}
+        setTimeout(() => {
+            hordeWindow.postMessage({ type: 'HORDE_APP_DATA', data: appData }, hordeUrl);
+        }, 2000); // Adjust the delay as needed
+    }
 
-
+    // Function to get some relevant shifts to show in the Shift
     function getRelevantShiftIfExists() {
         const tandaData = localStorage.getItem('parsedTandaScheduleData');
         if (!tandaData) return null;
@@ -2905,8 +2989,5 @@ function sendHordeAppData(appData) {
             const end = new Date(shift.end);
             return (start <= now && end >= now) || (end > oneHourAgo && end <= now);
         });
-    }
-
-    
-    
+    }  
 })();
