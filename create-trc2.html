@@ -17,6 +17,11 @@
             height: 100%;
             width: 100%;
         }
+
+        body {
+    visibility: hidden; /* Hide entire page initially */
+}
+
         h1 {
             font-size: 1.5em;
             text-align: center;
@@ -49,6 +54,11 @@
             margin-top: 20px;
             display: block;
         }
+
+        #loginMessage, #loginButton {
+    display: none; /* Hide initially */
+}
+
         #creating img {
             display: block;
             margin: 0 auto;
@@ -71,145 +81,141 @@
         }
     </style>
     <script>
-        let accessToken;
+       let accessToken;
 
-        // Logout function to clear the token
-        function logout() {
-            localStorage.removeItem('googleAccessToken'); // Remove the token
-            alert('You have been logged out.');
-            // Refresh the page to reset the UI
+// Logout function to clear the token
+function logout() {
+    localStorage.removeItem('googleAccessToken'); // Remove the token
+    alert('You have been logged out.');
+    window.location.reload(); // Refresh the page to reset the UI
+}
+
+// Load the Google API client
+async function loadGAPI() {
+    return new Promise((resolve, reject) => {
+        gapi.load('client', async () => {
+            try {
+                await gapi.client.init({
+                    discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest'],
+                });
+                resolve();
+            } catch (error) {
+                reject(error);
+            }
+        });
+    });
+}
+
+// Initialize the GIS client
+function initClient() {
+    const client = google.accounts.oauth2.initTokenClient({
+        client_id: '472088230940-057aqhlph3g6e6826bk9090m9qefdp7o.apps.googleusercontent.com',
+        scope: 'https://www.googleapis.com/auth/drive.file',
+        callback: (tokenResponse) => {
+            accessToken = tokenResponse.access_token;
+            localStorage.setItem('googleAccessToken', accessToken); // Store token
+
+            // Reload the page after successful login
             window.location.reload();
+        },
+    });
+
+    document.getElementById('loginButton').addEventListener('click', () => {
+        client.requestAccessToken();
+    });
+}
+
+// Display productTitle and caseNumber
+function displayParams() {
+    const params = new URLSearchParams(window.location.search);
+    const productTitle = params.get('productTitle');
+    const caseNumber = params.get('caseNumber');
+    document.getElementById('productTitle').textContent = productTitle;
+    document.getElementById('caseNumber').textContent = caseNumber;
+}
+
+// Check if the user is already logged in
+async function checkLoginStatus() {
+    const storedToken = localStorage.getItem('googleAccessToken');
+    const logoutButton = document.getElementById('logoutButton'); // Get logout button
+    const loginMessage = document.getElementById('loginMessage');
+    const loginButton = document.getElementById('loginButton');
+
+    if (storedToken) {
+        accessToken = storedToken; // Use stored token
+        try {
+            await loadGAPI(); // Ensure GAPI is initialized
+            loginMessage.style.display = 'none';
+            loginButton.style.display = 'none';
+            logoutButton.style.display = 'block'; // Show logout button
+            document.getElementById('creating').style.display = 'block';
+            createTRC(); // Proceed to create the TRC
+        } catch (error) {
+            console.error('Error initializing GAPI:', error);
+            alert('Failed to initialize Google API. Please try logging in again.');
+            localStorage.removeItem('googleAccessToken'); // Clear invalid token
+            loginMessage.style.display = 'block';
+            loginButton.style.display = 'block';
+            logoutButton.style.display = 'none'; // Hide logout button
         }
+    } else {
+        loginMessage.style.display = 'block'; // Show login message if not logged in
+        loginButton.style.display = 'block'; // Show login button if not logged in
+        logoutButton.style.display = 'none'; // Hide logout button
+    }
+}
 
-        // Load the Google API client
-        async function loadGAPI() {
-            return new Promise((resolve, reject) => {
-                gapi.load('client', async () => {
-                    try {
-                        await gapi.client.init({
-                            discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest'],
-                        });
-                        resolve();
-                    } catch (error) {
-                        reject(error);
-                    }
-                });
-            });
+
+// Create the TRC sheet
+async function createTRC() {
+    const params = new URLSearchParams(window.location.search);
+    const productTitle = params.get('productTitle');
+    const caseNumber = params.get('caseNumber');
+    const sheetID = params.get('sheetID');
+    const folderId = params.get('folderId');
+
+    try {
+        const response = await gapi.client.request({
+            path: `/drive/v3/files/${sheetID}/copy`,
+            method: 'POST',
+            headers: {
+                Authorization: `Bearer ${accessToken}`,
+            },
+            body: {
+                name: `${productTitle} ${caseNumber}`,
+                parents: [folderId],
+            },
+        });
+
+        if (response.result && response.result.id) {
+            const newSheetId = response.result.id;
+            const newSheetUrl = `https://docs.google.com/spreadsheets/d/${newSheetId}/edit`;
+            window.location.href = newSheetUrl; // Redirect to the new sheet
+        } else {
+            throw new Error('Failed to copy the Google Sheet');
         }
+    } catch (error) {
+        console.error('Error creating TRC:', error);
+        alert('Failed to create TRC document. Please check your permissions or try logging in again.');
+        localStorage.removeItem('googleAccessToken'); // Clear token if an error occurs
+    }
+}
 
-        // Initialize the GIS client
-        function initClient() {
-            const client = google.accounts.oauth2.initTokenClient({
-                client_id: '472088230940-057aqhlph3g6e6826bk9090m9qefdp7o.apps.googleusercontent.com',
-                scope: 'https://www.googleapis.com/auth/drive.file',
-                callback: (tokenResponse) => {
-                    accessToken = tokenResponse.access_token;
-                    localStorage.setItem('googleAccessToken', accessToken); // Store token
+// Initialize the app when the page loads
+window.onload = async () => {
+    document.body.style.visibility = 'visible'; // Show the page
+    displayParams(); // Display productTitle and caseNumber
+    try {
+        await loadGAPI(); // Ensure GAPI is initialized
+        checkLoginStatus(); // Check login status
+    } catch (error) {
+        console.error('Error loading GAPI:', error);
+        alert('Failed to load Google API. Please refresh the page.');
+    }
+    initClient(); // Set up GIS client
+};
 
-                    // Hide login message and button after successful login
-                    document.getElementById('loginMessage').style.display = 'none';
-                    document.getElementById('loginButton').style.display = 'none';
 
-                    // Show logout button
-                    document.getElementById('logoutButton').style.display = 'block';
-
-                    // Show the creating message
-                    document.getElementById('creating').style.display = 'block';
-
-                    // Proceed to create the TRC
-                    createTRC();
-                },
-            });
-
-            // Attach the login button
-            document.getElementById('loginButton').addEventListener('click', () => {
-                client.requestAccessToken();
-            });
-        }
-
-        // Display productTitle and caseNumber
-        function displayParams() {
-            const params = new URLSearchParams(window.location.search);
-            const productTitle = params.get('productTitle');
-            const caseNumber = params.get('caseNumber');
-            document.getElementById('productTitle').textContent = productTitle;
-            document.getElementById('caseNumber').textContent = caseNumber;
-        }
-
-        // Check if the user is already logged in
-        async function checkLoginStatus() {
-            const storedToken = localStorage.getItem('googleAccessToken');
-            const logoutButton = document.getElementById('logoutButton'); // Get logout button
-
-            if (storedToken) {
-                accessToken = storedToken; // Use stored token
-                try {
-                    await loadGAPI(); // Reinitialize GAPI before making requests
-                    document.getElementById('loginMessage').style.display = 'none';
-                    document.getElementById('loginButton').style.display = 'none';
-                    logoutButton.style.display = 'block'; // Show logout button
-                    document.getElementById('creating').style.display = 'block';
-                    createTRC(); // Proceed to create the TRC
-                } catch (error) {
-                    console.error('Error initializing GAPI:', error);
-                    alert('Failed to initialize Google API. Please try logging in again.');
-                    localStorage.removeItem('googleAccessToken'); // Clear invalid token
-                    document.getElementById('loginMessage').style.display = 'block';
-                    document.getElementById('loginButton').style.display = 'block';
-                    logoutButton.style.display = 'none'; // Hide logout button
-                }
-            } else {
-                logoutButton.style.display = 'none'; // Hide logout button if not logged in
-            }
-        }
-
-        // Create the TRC sheet
-        async function createTRC() {
-            const params = new URLSearchParams(window.location.search);
-            const productTitle = params.get('productTitle');
-            const caseNumber = params.get('caseNumber');
-            const sheetID = params.get('sheetID');
-            const folderId = params.get('folderId');
-
-            try {
-                const response = await gapi.client.request({
-                    path: `/drive/v3/files/${sheetID}/copy`,
-                    method: 'POST',
-                    headers: {
-                        Authorization: `Bearer ${accessToken}`,
-                    },
-                    body: {
-                        name: `${productTitle} ${caseNumber}`,
-                        parents: [folderId],
-                    },
-                });
-
-                if (response.result && response.result.id) {
-                    const newSheetId = response.result.id;
-                    const newSheetUrl = `https://docs.google.com/spreadsheets/d/${newSheetId}/edit`;
-                    window.location.href = newSheetUrl; // Redirect to the new sheet
-                } else {
-                    throw new Error('Failed to copy the Google Sheet');
-                }
-            } catch (error) {
-                console.error('Error creating TRC:', error);
-                alert('Failed to create TRC document. Please check your permissions or try logging in again.');
-                localStorage.removeItem('googleAccessToken'); // Clear token if an error occurs
-            }
-        }
-
-        // Initialize the app when the page loads
-        window.onload = async () => {
-            displayParams(); // Display productTitle and caseNumber
-            try {
-                await loadGAPI(); // Initialize GAPI on load
-                checkLoginStatus(); // Check if the user is already logged in
-            } catch (error) {
-                console.error('Error loading GAPI:', error);
-                alert('Failed to load Google API. Please refresh the page.');
-            }
-            initClient(); // Set up the GIS client
-        };
     </script>
 </head>
 <body>
