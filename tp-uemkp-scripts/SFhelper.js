@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Salesforce Helper for ModSquad UE MKTP
 // @namespace    http://tampermonkey.net/
-// @version      2.8.2
+// @version      2.8.3
 // @description  Process selected info, copy App Name, copy SF Case, and manage cases with floating buttons.
 // @author       Oscar O.
 // @match        https://epicgames.lightning.force.com/lightning/*
@@ -11,6 +11,7 @@
 // @connect      fab-admin.daec.live.use1a.on.epicgames.com
 // @downloadURL  https://raw.githubusercontent.com/212oscar/sforward/main/tp-uemkp-scripts/SFhelper.js
 // @updateURL    https://raw.githubusercontent.com/212oscar/sforward/main/tp-uemkp-scripts/SFhelper.js
+// @history      2.8.3 Fixed an issue where a "Please wait" windows randomly appears in Salesforce, the Fab Preview now also is showing for unity submissions.
 // @history      2.8.2 Added the Fab Preview Link!!!, now you can get the FAB preview in the Get info button.
 // @history      2.8.0 Autohorde when clicking the horde button! before I used another script for this but I integrated it here, so let me know of any issues.
 // @history      2.7.0 New easier way to add/update your shifts!
@@ -103,24 +104,26 @@
         }
     });
 
-    // Listen for messages from other tabs
+   // Listen for messages from other tabs
     window.addEventListener('message', (event) => {
         if (event.origin !== 'https://epicgames.lightning.force.com') return;
 
+        const { type, data, customProperty } = event.data;
 
-        const { type, data } = event.data;
+        // Check for the custom property to ensure the message is intended for your script
+        if (customProperty !== 'SFHelper') return;
 
-         // Show "Please wait" modal
-         showHordeModal('Please wait');
+        // Show "Please wait" modal
+        showHordeModal('Please wait');
 
         setTimeout(() => {
-        if (type === 'HORDE_APP_DATA') {
-            console.log('Received app data for Horde:', data);
-            closeModal();
-            showHordeModal('Please wait, getting app info');
-            fillHordeForm(data);
+            if (type === 'HORDE_APP_DATA') {
+                console.log('Received app data for Horde:', data);
+                closeModal();
+                showHordeModal('Please wait, getting app info');
+                fillHordeForm(data);
             }
-            }, 2000);
+        }, 2000);
     });
 
 
@@ -516,61 +519,61 @@ checkPageLoading();
 
 //Function to get the FAB url
 
-    async function getFabURL(caseNumber) {
-        const tabElement = document.querySelector(`a[title^="${caseNumber}"]`);
-        if (!tabElement) {
-            console.error('Tab element not found.');
-            return null;
-        }
-    
-        const ariaControls = tabElement.getAttribute('aria-controls');
-        if (!ariaControls) {
-            console.error('aria-controls attribute not found.');
-            return null;
-        }
-    
-        const sectionElement = document.getElementById(ariaControls);
-        if (!sectionElement) {
-            console.error('Section element not found.');
-            return null;
-        }
-    
-        const searchText = "https://fab-admin.daec.live.use1a.on.epicgames.com/admin/listings/listing/";
-        const node = findTextInShadowDOM(sectionElement, searchText);
-    
-        if (!node) {
-            console.error('Django URL not found.');
-            return null;
-        }
-    
-        const djangoURL = node.textContent.trim();
-        console.log('Django URL:', djangoURL);
-    
-        return new Promise((resolve, reject) => {
-            GM_xmlhttpRequest({
-                method: 'GET',
-                url: djangoURL,
-                onload: function (response) {
-                    const parser = new DOMParser();
-                    const doc = parser.parseFromString(response.responseText, 'text/html');
-                    const fabLink = doc.querySelector('a.link[href*="/portal/listings/"][href*="/preview"]');
-    
-                    if (fabLink) {
-                        const fabURL = `https://fab-admin.daec.live.use1a.on.epicgames.com${fabLink.getAttribute('href')}`;
-                        console.log('Final FAB URL:', fabURL);
-                        resolve(fabURL);
-                    } else {
-                        console.error('PDP Preview link not found.');
-                        resolve(null);
-                    }
-                },
-                onerror: function () {
-                    console.error('Failed to fetch Django URL content.');
-                    reject('Failed to fetch Django URL content.');
-                }
-            });
-        });
+async function getFabURL(caseNumber) {
+    const tabElement = document.querySelector(`a[title^="${caseNumber}"]`);
+    if (!tabElement) {
+        console.error('Tab element not found.');
+        return null;
     }
+
+    const ariaControls = tabElement.getAttribute('aria-controls');
+    if (!ariaControls) {
+        console.error('aria-controls attribute not found.');
+        return null;
+    }
+
+    const sectionElement = document.getElementById(ariaControls);
+    if (!sectionElement) {
+        console.error('Section element not found.');
+        return null;
+    }
+
+    const searchText = "https://fab-admin.daec.live.use1a.on.epicgames.com/admin/listings/listing/";
+    const node = findTextInShadowDOM(sectionElement, searchText);
+
+    if (!node) {
+        console.error('Django URL not found.');
+        return null;
+    }
+
+    const djangoURL = node.textContent.trim();
+    console.log('Django URL:', djangoURL);
+
+    return new Promise((resolve, reject) => {
+        GM_xmlhttpRequest({
+            method: 'GET',
+            url: djangoURL,
+            onload: function (response) {
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(response.responseText, 'text/html');
+                const fabLink = doc.querySelector('a.link[href*="/portal/listings/"][href*="/preview"]');
+
+                if (fabLink) {
+                    const fabURL = `https://fab-admin.daec.live.use1a.on.epicgames.com${fabLink.getAttribute('href')}`;
+                    console.log('Final FAB URL:', fabURL);
+                    resolve(fabURL);
+                } else {
+                    console.error('PDP Preview link not found.');
+                    resolve(null);
+                }
+            },
+            onerror: function () {
+                console.error('Failed to fetch Django URL content.');
+                reject('Failed to fetch Django URL content.');
+            }
+        });
+    });
+}
 
        // Define the TRC templates IDs
     const templateSheetIds = new Map([
@@ -1833,7 +1836,10 @@ checkPageLoading();
     
         // Display rows with "YES" in the last column
         if (info.length === 0) {
-            modalContent.innerHTML += '<strong>No rows with "YES" in the last column found.</strong>';
+            const itemDiv = document.createElement('div');
+            itemDiv.innerHTML += '<strong>No rows with "YES" found. Check if is a UNITY submission.</strong>';
+            itemDiv.style.marginBottom = '15px';
+            modalContent.appendChild(itemDiv);
         } else {
             info.forEach((item) => {
                 const itemDiv = document.createElement('div');
@@ -2970,7 +2976,7 @@ placeholder.replaceWith(customMultiplierContainer);
 
     // Use a timeout to ensure the window is fully loaded before sending the message
         setTimeout(() => {
-            hordeWindow.postMessage({ type: 'HORDE_APP_DATA', data: appData }, hordeUrl);
+            hordeWindow.postMessage({ type: 'HORDE_APP_DATA', data: appData, customProperty: 'SFHelper' }, hordeUrl);
         }, 2000); // Adjust the delay as needed
     }
 
