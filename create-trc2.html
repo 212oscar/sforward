@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create TRC</title>
+    <script src="https://apis.google.com/js/api.js"></script>
+    <style>
+        html, body {
+            background-color: black;
+            color: white;
+            font-family: 'Arial', sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 100%;
+            width: 100%;
+        }
+        h1 {
+            font-size: 1.5em;
+            text-align: center;
+        }
+        p {
+            font-size: 1em;
+            margin-bottom: 10%;
+            margin-top: 20px;
+            text-align: center;
+            color: rgb(0, 238, 255);
+        }
+        .footer {
+            margin-top: 120px;
+            font-size: 0.8em;
+        }
+        #loginButton {
+            padding: 10px 20px;
+            font-size: 1em;
+            margin-top: 20px;
+            display: none;
+        }
+    </style>
+    <script>
+        // Initialize the Google API client and check login status
+        async function initClient() {
+            await gapi.client.init({
+                apiKey: 'YOUR_API_KEY', // Optional
+                clientId: '472088230940-057aqhlph3g6e6826bk9090m9qefdp7o.apps.googleusercontent.com',
+                discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest'],
+                scope: 'https://www.googleapis.com/auth/drive.file'
+            });
+
+            const authInstance = gapi.auth2.getAuthInstance();
+
+            // Check if the user is already signed in
+            if (authInstance.isSignedIn.get()) {
+                console.log('User already signed in');
+                createTRC(); // Automatically create the TRC
+            } else {
+                console.log('User not signed in, prompting for login');
+                document.getElementById('loginButton').style.display = 'block'; // Show login button
+            }
+        }
+
+        // Handle login when the user clicks the button
+        async function handleAuthClick() {
+            try {
+                const user = await gapi.auth2.getAuthInstance().signIn();
+                console.log('User signed in:', user.getBasicProfile().getName());
+                document.getElementById('loginButton').style.display = 'none'; // Hide login button
+                createTRC(); // Call the createTRC function
+            } catch (error) {
+                console.error('Error during sign-in:', error);
+            }
+        }
+
+        // Create the TRC sheet
+        async function createTRC() {
+            const params = new URLSearchParams(window.location.search);
+            const productTitle = params.get('productTitle');
+            const caseNumber = params.get('caseNumber');
+            const sheetID = params.get('sheetID');
+            const folderId = params.get('folderId');
+
+            try {
+                const response = await gapi.client.request({
+                    path: `/drive/v3/files/${sheetID}/copy`,
+                    method: 'POST',
+                    body: {
+                        name: `${productTitle} ${caseNumber}`,
+                        parents: [folderId]
+                    }
+                });
+
+                if (response.result && response.result.id) {
+                    const newSheetId = response.result.id;
+                    console.log('New Sheet ID:', newSheetId);
+                    const newSheetUrl = `https://docs.google.com/spreadsheets/d/${newSheetId}/edit`;
+                    window.location.href = newSheetUrl; // Redirect to the new sheet
+                } else {
+                    throw new Error('Failed to copy the Google Sheet');
+                }
+            } catch (error) {
+                console.error('Error creating TRC:', error);
+                alert('Failed to create TRC document');
+            }
+        }
+    </script>
+</head>
+<body onload="gapi.load('client:auth2', initClient)">
+    <h1>Creating TRC for the Product: <br><span style="color:yellow" id="productTitle"></span> <br><br>
+      SF case: <br><span style="color:yellow" id="caseNumber"></span></h1>
+    
+    <button id="loginButton" onclick="handleAuthClick()">Login with Google</button>
+    
+    <img src="https://media1.tenor.com/m/SB66UNkGc0gAAAAd/sloth-slow.gif" alt="Loading GIF" style="max-height: 200px;">
+    <p>This shouldn't take more than 15 seconds</p>
+    <div style="color: gray" class="footer">by Oscar O.</div>
+</body>
+</html>
