@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Create TRC</title>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script src="https://apis.google.com/js/api.js"></script>
     <style>
         html, body {
@@ -35,41 +36,36 @@
             padding: 10px 20px;
             font-size: 1em;
             margin-top: 20px;
-            display: none;
+            display: block;
         }
     </style>
     <script>
-        // Initialize the Google API client and check login status
-        async function initClient() {
-            await gapi.client.init({
-                apiKey: 'YOUR_API_KEY', // Optional
-                clientId: '472088230940-057aqhlph3g6e6826bk9090m9qefdp7o.apps.googleusercontent.com',
-                discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest'],
-                scope: 'https://www.googleapis.com/auth/drive.file'
+        let accessToken;
+
+        // Load the Google API client
+        async function loadGAPI() {
+            await gapi.load('client', async () => {
+                await gapi.client.init({
+                    discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest'],
+                });
             });
-
-            const authInstance = gapi.auth2.getAuthInstance();
-
-            // Check if the user is already signed in
-            if (authInstance.isSignedIn.get()) {
-                console.log('User already signed in');
-                createTRC(); // Automatically create the TRC
-            } else {
-                console.log('User not signed in, prompting for login');
-                document.getElementById('loginButton').style.display = 'block'; // Show login button
-            }
         }
 
-        // Handle login when the user clicks the button
-        async function handleAuthClick() {
-            try {
-                const user = await gapi.auth2.getAuthInstance().signIn();
-                console.log('User signed in:', user.getBasicProfile().getName());
-                document.getElementById('loginButton').style.display = 'none'; // Hide login button
-                createTRC(); // Call the createTRC function
-            } catch (error) {
-                console.error('Error during sign-in:', error);
-            }
+        // Initialize the GIS client
+        function initClient() {
+            const client = google.accounts.oauth2.initTokenClient({
+                client_id: '472088230940-057aqhlph3g6e6826bk9090m9qefdp7o.apps.googleusercontent.com',
+                scope: 'https://www.googleapis.com/auth/drive.file',
+                callback: (tokenResponse) => {
+                    accessToken = tokenResponse.access_token;
+                    createTRC(); // Call the TRC creation function once authenticated
+                },
+            });
+
+            // Attach the login button
+            document.getElementById('loginButton').addEventListener('click', () => {
+                client.requestAccessToken();
+            });
         }
 
         // Create the TRC sheet
@@ -84,15 +80,17 @@
                 const response = await gapi.client.request({
                     path: `/drive/v3/files/${sheetID}/copy`,
                     method: 'POST',
+                    headers: {
+                        Authorization: `Bearer ${accessToken}`,
+                    },
                     body: {
                         name: `${productTitle} ${caseNumber}`,
-                        parents: [folderId]
-                    }
+                        parents: [folderId],
+                    },
                 });
 
                 if (response.result && response.result.id) {
                     const newSheetId = response.result.id;
-                    console.log('New Sheet ID:', newSheetId);
                     const newSheetUrl = `https://docs.google.com/spreadsheets/d/${newSheetId}/edit`;
                     window.location.href = newSheetUrl; // Redirect to the new sheet
                 } else {
@@ -103,13 +101,19 @@
                 alert('Failed to create TRC document');
             }
         }
+
+        // Initialize the app when the page loads
+        window.onload = async () => {
+            await loadGAPI();
+            initClient();
+        };
     </script>
 </head>
-<body onload="gapi.load('client:auth2', initClient)">
+<body>
     <h1>Creating TRC for the Product: <br><span style="color:yellow" id="productTitle"></span> <br><br>
       SF case: <br><span style="color:yellow" id="caseNumber"></span></h1>
     
-    <button id="loginButton" onclick="handleAuthClick()">Login with Google</button>
+    <button id="loginButton">Login with Google</button>
     
     <img src="https://media1.tenor.com/m/SB66UNkGc0gAAAAd/sloth-slow.gif" alt="Loading GIF" style="max-height: 200px;">
     <p>This shouldn't take more than 15 seconds</p>
