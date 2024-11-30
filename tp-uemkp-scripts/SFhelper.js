@@ -11,7 +11,8 @@
 // @connect      fab-admin.daec.live.use1a.on.epicgames.com
 // @downloadURL  https://raw.githubusercontent.com/212oscar/sforward/main/tp-uemkp-scripts/SFhelper.js
 // @updateURL    https://raw.githubusercontent.com/212oscar/sforward/main/tp-uemkp-scripts/SFhelper.js
-// @history      2.8.3 Fixed an issue where a "Please wait" windows randomly appears in Salesforce, the Fab Preview now also is showing for unity submissions.
+// @history      2.8.4 Now you can create TRCs on your name! (previously my name was there as the creator) Just login with google the first time and that's it.
+// @history      2.8.3 Fixed an issue where a Please wait windows randomly appeared in Salesforce, the Fab Preview now also is showing for unity submissions.
 // @history      2.8.2 Added the Fab Preview Link!!!, now you can get the FAB preview in the Get info button.
 // @history      2.8.0 Autohorde when clicking the horde button! before I used another script for this but I integrated it here, so let me know of any issues.
 // @history      2.7.0 New easier way to add/update your shifts!
@@ -1194,7 +1195,7 @@ async function getFabURL(caseNumber) {
             // Retrieve user information from local storage
             getUserInfo(({ folderId }) => {
                 // Open the custom HTML page in a new tab and pass the productTitle, caseNumber, sheetID, and user info as query parameters
-                const newTabUrl = `https://212oscar.github.io/sforward/create-trc.html?productTitle=${encodeURIComponent(productTitle)}&caseNumber=${encodeURIComponent(caseNumber)}&sheetID=${encodeURIComponent(sheetID)}&folderId=${encodeURIComponent(folderId)}`;
+                const newTabUrl = `https://212oscar.github.io/sforward/newTRC.html?productTitle=${encodeURIComponent(productTitle)}&caseNumber=${encodeURIComponent(caseNumber)}&sheetID=${encodeURIComponent(sheetID)}&folderId=${encodeURIComponent(folderId)}`;
                 window.open(newTabUrl, '_blank');
             });
         });
