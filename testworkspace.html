@@ -117,7 +117,7 @@
         function initClient() {
             const client = google.accounts.oauth2.initTokenClient({
                 client_id: '144808938638-u9e2kcb96i03kus30a6c7puge62sg1ll.apps.googleusercontent.com',
-                scope: 'https://www.googleapis.com/auth/drive.file',
+                scope: 'https://www.googleapis.com/auth/drive',
                 callback: (tokenResponse) => {
                     accessToken = tokenResponse.access_token;
                     localStorage.setItem('googleAccessToken', tokenResponse.access_token);
