@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Salesforce Helper for ModSquad UE MKTP
 // @namespace    http://tampermonkey.net/
-// @version      2.8.4
+// @version      2.9
 // @description  Process selected info, copy App Name, copy SF Case, and manage cases with floating buttons.
 // @author       Oscar O.
 // @match        https://epicgames.lightning.force.com/lightning/*
@@ -11,6 +11,7 @@
 // @connect      fab-admin.daec.live.use1a.on.epicgames.com
 // @downloadURL  https://raw.githubusercontent.com/212oscar/sforward/main/tp-uemkp-scripts/SFhelper.js
 // @updateURL    https://raw.githubusercontent.com/212oscar/sforward/main/tp-uemkp-scripts/SFhelper.js
+// @history      2.9  Added a "Close" button to change the case status. Improved the Shift Report, now Support case types are allowed, now you only need to paste the URL of the Google Sheets or Google Drive Folder. Deleted some unused code .
 // @history      2.8.4 Now you can create TRCs on your name! (previously my name was there as the creator) Just login with google the first time and that's it.
 // @history      2.8.3 Fixed an issue where a Please wait windows randomly appeared in Salesforce, the Fab Preview now also is showing for unity submissions.
 // @history      2.8.2 Added the Fab Preview Link!!!, now you can get the FAB preview in the Get info button.
@@ -692,451 +693,483 @@ async function getFabURL(caseNumber) {
     }
 
     // Function to prompt user for information and store it in local storage
-    function promptForInfo(key, message, callback) {
-        let value = localStorage.getItem(key);
-        if (!value) {
-            showModal(message, (inputValue) => {
-                localStorage.setItem(key, inputValue);
-                callback(inputValue);
-            });
-        } else {
-            callback(value);
-        }
-    }
-
-    // Function to get user information from local storage or prompt if not available
-    function getUserInfo(callback) {
-        promptForInfo('folderId', 'Please enter your Google Drive folder ID:', (folderId) => {
-            callback({ folderId });
+function promptForInfo(key, message, callback) {
+    let value = localStorage.getItem(key);
+    if (!value) {
+        showModal(message, (inputValue) => {
+            const extractedId = extractGoogleId(inputValue);
+            if (extractedId) {
+                localStorage.setItem(key, extractedId);
+                callback(extractedId);
+            } else {
+                alert('Invalid URL. Please enter a valid Google Sheet or Drive Folder URL.');
+            }
         });
+    } else {
+        callback(value);
     }
+}
 
-    // Function to get TRC template ID from local storage or prompt if not available
-    function getTemplateSheetId(template, callback) {
-        promptForInfo(template, `Please enter the Google Sheet ID for the ${template} template:`, (sheetId) => {
-            callback(sheetId);
-        });
+// Helper function to extract Google Sheet ID or Google Drive Folder ID from URL
+function extractGoogleId(url) {
+    const sheetIdMatch = url.match(/\/d\/([a-zA-Z0-9-_]+)\//);
+    const folderIdMatch = url.match(/\/folders\/([a-zA-Z0-9-_]+)/);
+
+    if (sheetIdMatch) {
+        return sheetIdMatch[1];
+    } else if (folderIdMatch) {
+        return folderIdMatch[1];
+    } else {
+        return null;
     }
+}
+
+// Function to get user information from local storage or prompt if not available
+function getUserInfo(callback) {
+    promptForInfo('folderId', 'Please enter your Google Drive folder URL:', (folderId) => {
+        callback({ folderId });
+    });
+}
+
+// Function to get TRC template ID from local storage or prompt if not available
+function getTemplateSheetId(template, callback) {
+    promptForInfo(template, `Please enter the Google Sheet URL for the ${template} template:`, (sheetId) => {
+        callback(sheetId);
+    });
+}
 
     // Function to show a modal to edit stored template IDs and folder ID
-    function showEditModal() {
-        const modal = document.createElement('div');
-        modal.id = 'custom-modal';
-        modal.style.cssText = `
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: white;
-            padding: 20px;
-            border: 1px solid #ccc;
-            border-radius: 5px;
-            z-index: 10000;
-            max-height: 80%;
-            overflow-y: auto;
-        `;
+function showEditModal() {
+    const modal = document.createElement('div');
+    modal.id = 'custom-modal';
+    modal.style.cssText = `
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: white;
+        padding: 20px;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+        z-index: 10000;
+        max-height: 80%;
+        overflow-y: auto;
+    `;
 
-        const title = document.createElement('h3');
-        title.innerHTML = 'Edit Google Sheets Templates and Drive folder<hr>';
-        modal.appendChild(title);
+    const title = document.createElement('h3');
+    title.innerHTML = 'Edit Google Sheets Templates and Drive folder<hr>';
+    modal.appendChild(title);
 
-        const form = document.createElement('form');
-        form.style.cssText = 'display: flex; flex-direction: column; gap: 10px;';
+    const form = document.createElement('form');
+    form.style.cssText = 'display: flex; flex-direction: column; gap: 10px;';
 
-        // Add input fields for each template ID
-        templateSheetIds.forEach((_, template) => {
-            const label = document.createElement('label');
-            label.innerText = `${template} Template ID:`;
-            form.appendChild(label);
+    // Add input fields for each template ID
+    templateSheetIds.forEach((_, template) => {
+        const label = document.createElement('label');
+        label.innerText = `${template} Template URL:`;
+        form.appendChild(label);
 
-            const input = document.createElement('input');
-            input.type = 'text';
-            input.value = localStorage.getItem(template) || '';
-            input.dataset.template = template;
-            input.style.cssText = `
-                width: 100%;
-                padding: 10px;
-                border: 1px solid #ccc;
-                border-radius: 5px;
-            `;
-            form.appendChild(input);
-        });
-
-        // Add input field for folder ID
-        const folderLabel = document.createElement('label');
-        folderLabel.innerText = 'Google Drive Folder ID:';
-        form.appendChild(folderLabel);
-
-        const folderInput = document.createElement('input');
-        folderInput.type = 'text';
-        folderInput.value = localStorage.getItem('folderId') || '';
-        folderInput.dataset.template = 'folderId';
-        folderInput.style.cssText = `
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.value = localStorage.getItem(template) || '';
+        input.dataset.template = template;
+        input.placeholder = 'Enter Google Sheet URL';
+        input.style.cssText = `
             width: 100%;
             padding: 10px;
             border: 1px solid #ccc;
             border-radius: 5px;
         `;
-        form.appendChild(folderInput);
+        form.appendChild(input);
+    });
 
-        modal.appendChild(form);
+    // Add input field for folder ID
+    const folderLabel = document.createElement('label');
+    folderLabel.innerText = 'Google Drive Folder URL:';
+    form.appendChild(folderLabel);
 
-        const buttonContainer = document.createElement('div');
-        buttonContainer.style.cssText = `
-            display: flex;
-            justify-content: space-between;
-            margin-top: 10px;
-        `;
+    const folderInput = document.createElement('input');
+    folderInput.type = 'text';
+    folderInput.value = localStorage.getItem('folderId') || '';
+    folderInput.dataset.template = 'folderId';
+    folderInput.placeholder = 'Enter Google Drive Folder URL';
+    folderInput.style.cssText = `
+        width: 100%;
+        padding: 10px;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+    `;
+    form.appendChild(folderInput);
 
-        const saveButton = document.createElement('button');
-        saveButton.innerText = 'Save';
-        saveButton.style.cssText = `
-            padding: 10px;
-            background: #007bff;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-        `;
-        saveButton.addEventListener('click', (event) => {
-            event.preventDefault();
-            const inputs = form.querySelectorAll('input');
-            inputs.forEach(input => {
-                const key = input.dataset.template;
-                const value = input.value.trim();
-                if (value) {
-                    localStorage.setItem(key, value);
-                } else {
-                    localStorage.removeItem(key);
-                }
-            });
-            document.body.removeChild(modal);
+    modal.appendChild(form);
+
+    const buttonContainer = document.createElement('div');
+    buttonContainer.style.cssText = `
+        display: flex;
+        justify-content: space-between;
+        margin-top: 10px;
+    `;
+
+    const saveButton = document.createElement('button');
+    saveButton.innerText = 'Save';
+    saveButton.style.cssText = `
+        padding: 10px;
+        background: #007bff;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+    `;
+    saveButton.addEventListener('click', (event) => {
+        event.preventDefault();
+        const inputs = form.querySelectorAll('input');
+        inputs.forEach(input => {
+            const key = input.dataset.template;
+            const value = input.value.trim();
+            const extractedId = extractGoogleId(value);
+            if (extractedId) {
+                localStorage.setItem(key, extractedId);
+            } else {
+                localStorage.removeItem(key);
+            }
         });
-        buttonContainer.appendChild(saveButton);
+        document.body.removeChild(modal);
+    });
+    buttonContainer.appendChild(saveButton);
 
-        const cancelButton = document.createElement('button');
-        cancelButton.innerText = 'Cancel';
-        cancelButton.style.cssText = `
-            padding: 10px;
-            background: #f44336;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-        `;
-        cancelButton.addEventListener('click', () => {
-            document.body.removeChild(modal);
-        });
-        buttonContainer.appendChild(cancelButton);
+    const cancelButton = document.createElement('button');
+    cancelButton.innerText = 'Cancel';
+    cancelButton.style.cssText = `
+        padding: 10px;
+        background: #f44336;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+    `;
+    cancelButton.addEventListener('click', () => {
+        document.body.removeChild(modal);
+    });
+    buttonContainer.appendChild(cancelButton);
 
-        modal.appendChild(buttonContainer);
+    modal.appendChild(buttonContainer);
 
-        document.body.appendChild(modal);
+    document.body.appendChild(modal);
+}
+
+function initializeUI() {
+    console.log('Initializing UI...');
+
+    // Check if buttons already exist
+    if (document.getElementById('assign-to-me-button')) {
+        console.log('Buttons already initialized.');
+        return; // Avoid duplicating buttons
     }
 
-    function initializeUI() {
-        console.log('Initializing UI...');
+    // Create sections for buttons
+    const section1 = createSection('section1', '100px');
+    const section2 = createSection('section2', '350px');
+    const section3 = createSection('section3', '600px');
 
-        // Check if buttons already exist
-        if (document.getElementById('assign-to-me-button')) {
-            console.log('Buttons already initialized.');
-            return; // Avoid duplicating buttons
+    // Store original positions
+    section1.dataset.originalTop = section1.style.top;
+    section2.dataset.originalTop = section2.style.top;
+    section3.dataset.originalTop = section3.style.top;
+
+    // Create the "Assign to Me" button (Yellow)
+    const assignToMeButton = createButton('Assign to Me', '#ffc107', () => {
+        checkPageLoading();
+        if (isPageLoading) {
+            showAlertModal(pageNotLoadedMessage);
+            return;
         }
+        const caseId = getCaseIdFromURL();
+        if (caseId) {
+            assignCaseToMe(caseId);
+        } else {
+            alert('Case ID not found!');
+        }
+    });
+    section1.appendChild(assignToMeButton);
 
-        // Create sections for buttons
-        const section1 = createSection('section1', '100px');
-        const section2 = createSection('section2', '350px');
-        const section3 = createSection('section3', '550px');
+    // Create the "Get Info" button (Blue)
+    const getInfoButton = createButton('Get Info', '#007bff', () => {
+        checkPageLoading();
+        if (isPageLoading) {
+            showAlertModal(pageNotLoadedMessage);
+            return;
+        }
+    
+        const info = processListingContent();
+      
+      
+    });
+    section1.appendChild(getInfoButton);
 
-        // Store original positions
-        section1.dataset.originalTop = section1.style.top;
-        section2.dataset.originalTop = section2.style.top;
-        section3.dataset.originalTop = section3.style.top;
+    // Create the "Copy SF Case" button (Green)
+    const copyCaseButton = createButton('Copy SF Case', '#11eded', () => {
+        checkPageLoading();
+        if (isPageLoading) {
+            showAlertModal(pageNotLoadedMessage);
+            return;
+        }
+        const caseNumber = getCaseNumber();
+        if (caseNumber) {
+            copyToClipboard(caseNumber, copyCaseButton);
+        } else {
+            alert('SF Case Number not found!');
+        }
+    });
+    section1.appendChild(copyCaseButton);
 
-        // Create the "Assign to Me" button (Yellow)
-        const assignToMeButton = createButton('Assign to Me', '#ffc107', () => {
-            checkPageLoading();
-            if (isPageLoading) {
-                showAlertModal(pageNotLoadedMessage);
-                return;
-            }
-            const caseId = getCaseIdFromURL();
-            if (caseId) {
-                assignCaseToMe(caseId);
-            } else {
-                alert('Case ID not found!');
-            }
-        });
-        section1.appendChild(assignToMeButton);
+    // Create the TRC template submenu
+    const trcTemplateMenu = document.createElement('div');
+    trcTemplateMenu.style.cssText = `
+        position: absolute;
+        top: 0;
+        left: -200px;
+        width: 180px;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+        padding: 10px;
+        background: white;
+        z-index: 10000;
+        display: none;
+    `;
 
-        // Create the "Get Info" button (Blue)
-        const getInfoButton = createButton('Get Info', '#007bff', () => {
-            checkPageLoading();
-            if (isPageLoading) {
-                showAlertModal(pageNotLoadedMessage);
-                return;
-            }
-            closeExistingModal(); // Close any existing modal
-            const info = processListingContent();
-          
-          
-        });
-        section1.appendChild(getInfoButton);
+    const trcTemplateLabel = document.createElement('div');
+    trcTemplateLabel.innerText = 'Select TRC Template:';
+    trcTemplateLabel.style.cssText = 'margin-bottom: 10px;';
+    trcTemplateMenu.appendChild(trcTemplateLabel);
 
-        // Create the "Copy SF Case" button (Green)
-        const copyCaseButton = createButton('Copy SF Case', '#11eded', () => {
-            checkPageLoading();
-            if (isPageLoading) {
-                showAlertModal(pageNotLoadedMessage);
-                return;
-            }
-            const caseNumber = getCaseNumber();
-            if (caseNumber) {
-                copyToClipboard(caseNumber, copyCaseButton);
-            } else {
-                alert('SF Case Number not found!');
-            }
-        });
-        section1.appendChild(copyCaseButton);
-
-        // Create the TRC template submenu
-        const trcTemplateMenu = document.createElement('div');
-        trcTemplateMenu.style.cssText = `
-            position: absolute;
-            top: 0;
-            left: -200px;
-            width: 180px;
-            border: 1px solid #ccc;
+    templateSheetIds.forEach((sheetId, template) => {
+        const option = document.createElement('div');
+        option.innerText = template;
+        option.style.cssText = `
+            background: ${template === 'Blank TRC (Original)' ? '#d8b2d8' : '#6f42c1'};
+            color: white;
+            border: none;
             border-radius: 5px;
             padding: 10px;
-            background: white;
-            z-index: 10000;
-            display: none;
+            margin: 5px 0; /* Add margin to separate buttons */
+            cursor: pointer;
+            text-align: center;
         `;
-
-        const trcTemplateLabel = document.createElement('div');
-        trcTemplateLabel.innerText = 'Select TRC Template:';
-        trcTemplateLabel.style.cssText = 'margin-bottom: 10px;';
-        trcTemplateMenu.appendChild(trcTemplateLabel);
-
-        templateSheetIds.forEach((sheetId, template) => {
-            const option = document.createElement('div');
-            option.innerText = template;
-            option.style.cssText = `
-                background: ${template === 'Blank TRC (Original)' ? '#d8b2d8' : '#6f42c1'};
-                color: white;
-                border: none;
-                border-radius: 5px;
-                padding: 10px;
-                margin: 5px 0; /* Add margin to separate buttons */
-                cursor: pointer;
-                text-align: center;
-            `;
-            option.addEventListener('click', () => {
-                trcTemplateMenu.style.display = 'none';
-                openNewTabWithTemplate(template);
-            });
-            trcTemplateMenu.appendChild(option);
-        });
-
-
-       // Edit button for stored template IDs and folder ID
-            const editButton = document.createElement('div');
-            editButton.innerText = 'Edit';
-            editButton.style.cssText = `
-                background: #ff9800;
-                color: white;
-                border: none;
-                border-radius: 5px;
-                padding: 10px;
-                margin: 5px 0; /* Add margin to separate buttons */
-                cursor: pointer;
-                text-align: center;
-            `;
-            editButton.addEventListener('click', () => {
-                showEditModal();
-            });
-            trcTemplateMenu.appendChild(editButton);
-        
-
-        section1.appendChild(trcTemplateMenu);
-
-        // Create the "Create TRC" button (Purple)
-        const createTRCButton = createButton('Create TRC', '#6f42c1', () => {
-            checkPageLoading();
-            if (isPageLoading) {
-                showAlertModal(pageNotLoadedMessage);
-                return;
-            }
-            closeExistingModal(); // Close any existing modal
-            trcTemplateMenu.style.display = 'block';
-        });
-        createTRCButton.addEventListener('mouseleave', () => {
-            setTimeout(() => {
-                if (!trcTemplateMenu.matches(':hover')) {
-                    trcTemplateMenu.style.display = 'none';
-                }
-            }, 500);
-        });
-        trcTemplateMenu.addEventListener('mouseleave', () => {
+        option.addEventListener('click', () => {
             trcTemplateMenu.style.display = 'none';
+            openNewTabWithTemplate(template);
         });
-        section1.appendChild(createTRCButton);
-
-        // Create the "Approve" button (Light Green)
-        const approveButton = createButton('Approve', '#11ed11', () => {
-            checkPageLoading();
-            if (isPageLoading) {
-                showAlertModal(pageNotLoadedMessage);
-                return;
-            }
-            changeStatus('approve-button');
-        });
-        approveButton.id = 'approve-button';
-        section2.appendChild(approveButton);
-
-        // Create the "Changes Needed" button (Orange)
-        const changesNeededButton = createButton('Changes Needed', '#ff9800', () => {
-            checkPageLoading();
-            if (isPageLoading) {
-                showAlertModal(pageNotLoadedMessage);
-                return;
-            }
-            changeStatus('changes-needed-button');
-        });
-        changesNeededButton.id = 'changes-needed-button';
-        section2.appendChild(changesNeededButton);
-
-        // Create the "Decline" button (Red)
-        const declineButton = createButton('Decline', '#f44336', () => {
-            checkPageLoading();
-            if (isPageLoading) {
-                showAlertModal(pageNotLoadedMessage);
-                return;
-            }
-            changeStatus('decline-button');
-        });
-        declineButton.id = 'decline-button';
-        section2.appendChild(declineButton);
-
-        // Create the "Case Log" button
-        const viewLogButton = createButton('Case Log', '#ff5722', () => {
-            viewCaseLog(); // Call the function to display the log
-        });
-        section3.appendChild(viewLogButton);
-
-        // Create the "Add my shift" button (Purple)
-        const addShiftButton = createButton('Add my shift', '#6f42c1', () => {
-            showTandaModal();
-        });
+        trcTemplateMenu.appendChild(option);
+    });
 
 
-        if (!localStorage.getItem('parsedTandaScheduleData')) {
-            section3.appendChild(addShiftButton);
-        }
-
-        // Check if shifts are stored and if a shift has started but not finished or finished within the last hour
-    const relevantShift = getRelevantShiftIfExists();
-    if (relevantShift) {
-        const shiftReportButton = createButton('Shift Report', '#007bff', () => {
-            showShiftReportModal(relevantShift.start, relevantShift.end, relevantShift.duration);
-        });
-        section3.appendChild(shiftReportButton);
-    }
-
-       // Create the "Show Shifts" button (Blue) only if shifts are stored in local storage
-        if (localStorage.getItem('parsedTandaScheduleData')) {
-            const showShiftsButton = createButton('Show Shifts', '#007bff', () => {
-                displayShiftInfo();
-            });
-            section3.appendChild(showShiftsButton);
-        }
-
-        // Create the "Reset all" button (Red)
-        const resetAllButton = document.createElement('button');
-        resetAllButton.innerText = 'Reset all';
-        resetAllButton.style.cssText = `
-            background: #f44336;
+   // Edit button for stored template IDs and folder ID
+        const editButton = document.createElement('div');
+        editButton.innerText = 'Edit';
+        editButton.style.cssText = `
+            background: #ff9800;
             color: white;
             border: none;
             border-radius: 5px;
-            padding: 2px 2px;
+            padding: 10px;
+            margin: 5px 0; /* Add margin to separate buttons */
             cursor: pointer;
-            margin-top: 10px;
+            text-align: center;
         `;
-
-
-        resetAllButton.addEventListener('click', () => {
-            if (confirm('Are you sure you want to reset all settings and stored information (Shifts, Cases, Sheets ID, etc)? This action cannot be undone.')) {
-                // Clear all relevant local storage items
-                localStorage.removeItem('parsedTandaScheduleData');
-                localStorage.removeItem('sfCaseLog');
-                localStorage.removeItem('folderId');
-                localStorage.removeItem('reminderCheckboxState');
-                templateSheetIds.forEach((_, key) => {
-                    localStorage.removeItem(key);
-                });
-                alert('All settings have been reset.');
-                location.reload(); // Reload the page to apply changes
-            }
+        editButton.addEventListener('click', () => {
+            showEditModal();
         });
-        section3.appendChild(resetAllButton);
+        trcTemplateMenu.appendChild(editButton);
+    
 
-        // Create a container for the reset button
-        const resetButtonContainer = document.createElement('div');
-        resetButtonContainer.style.cssText = 'margin-top: 0px; margin-bottom: 5px;';
-        resetButtonContainer.appendChild(resetAllButton);
-        section3.appendChild(resetButtonContainer);
+    section1.appendChild(trcTemplateMenu);
 
-        // Append sections to the body
-        document.body.appendChild(section1);
-        document.body.appendChild(section2);
-        document.body.appendChild(section3);
-
-        // Create and append the collapse/expand button
-        const collapseButton = createCollapseButton();
-        document.body.appendChild(collapseButton);
-
-        // Make the sections draggable
-        makeDraggable(collapseButton);
-
-        // Observe URL changes and close modal if necessary
-        observeURLChanges();
-
-        // Check if tandaData exists and show the reminder checkbox
-        if (localStorage.getItem('parsedTandaScheduleData')) {
-            const reminderCheckbox = document.createElement('input');
-            reminderCheckbox.type = 'checkbox';
-            reminderCheckbox.id = 'reminderCheckbox';
-            reminderCheckbox.style.marginLeft = '10px';
-
-            const reminderLabel = document.createElement('label');
-            reminderLabel.htmlFor = 'reminderCheckbox';
-            reminderLabel.innerText = 'Clock-in/Out Reminders?';
-            reminderLabel.style.marginLeft = '5px';
-
-            section3.appendChild(reminderCheckbox);
-            section3.appendChild(reminderLabel);
-
-            // Restore checkbox state from localStorage
-            const savedReminderCheckboxState = localStorage.getItem('reminderCheckboxState') === 'true';
-            reminderCheckbox.checked = savedReminderCheckboxState;
-            if (savedReminderCheckboxState) {
-                setShiftReminders();
-            }
-
-            reminderCheckbox.addEventListener('change', () => {
-                localStorage.setItem('reminderCheckboxState', reminderCheckbox.checked);
-                if (reminderCheckbox.checked) {
-                    setShiftReminders();
-                } else {
-                    clearShiftReminders();
-                }
-            });
+    // Create the "Create TRC" button (Purple)
+    const createTRCButton = createButton('Create TRC', '#6f42c1', () => {
+        checkPageLoading();
+        if (isPageLoading) {
+            showAlertModal(pageNotLoadedMessage);
+            return;
         }
+        closeExistingModal(); // Close any existing modal
+        trcTemplateMenu.style.display = 'block';
+    });
+    createTRCButton.addEventListener('mouseleave', () => {
+        setTimeout(() => {
+            if (!trcTemplateMenu.matches(':hover')) {
+                trcTemplateMenu.style.display = 'none';
+            }
+        }, 500);
+    });
+    trcTemplateMenu.addEventListener('mouseleave', () => {
+        trcTemplateMenu.style.display = 'none';
+    });
+    section1.appendChild(createTRCButton);
+
+    // Create the "Approve" button (Light Green)
+    const approveButton = createButton('Approve', '#11ed11', () => {
+        checkPageLoading();
+        if (isPageLoading) {
+            showAlertModal(pageNotLoadedMessage);
+            return;
+        }
+        changeStatus('approve-button');
+    });
+    approveButton.id = 'approve-button';
+    section2.appendChild(approveButton);
+
+    // Create the "Changes Needed" button (Orange)
+    const changesNeededButton = createButton('Changes Needed', '#ff9800', () => {
+        checkPageLoading();
+        if (isPageLoading) {
+            showAlertModal(pageNotLoadedMessage);
+            return;
+        }
+        changeStatus('changes-needed-button');
+    });
+    changesNeededButton.id = 'changes-needed-button';
+    section2.appendChild(changesNeededButton);
+
+    // Create the "Decline" button (Red)
+    const declineButton = createButton('Decline', '#f44336', () => {
+        checkPageLoading();
+        if (isPageLoading) {
+            showAlertModal(pageNotLoadedMessage);
+            return;
+        }
+        changeStatus('decline-button');
+    });
+    declineButton.id = 'decline-button';
+    section2.appendChild(declineButton);
+
+    // Create the "Close" button (Gray)
+    const closeButton = createButton('Close', '#808080', () => {
+        checkPageLoading();
+        if (isPageLoading) {
+            showAlertModal(pageNotLoadedMessage);
+            return;
+        }
+        changeStatus('close-button');
+    });
+    closeButton.id = 'close-button';
+    section2.appendChild(closeButton);
+
+    // Create the "Case Log" button
+    const viewLogButton = createButton('Case Log', '#ff5722', () => {
+        viewCaseLog(); // Call the function to display the log
+    });
+    section3.appendChild(viewLogButton);
+
+    // Create the "Add my shift" button (Purple)
+    const addShiftButton = createButton('Add my shift', '#6f42c1', () => {
+        showTandaModal();
+    });
+
+
+    if (!localStorage.getItem('parsedTandaScheduleData')) {
+        section3.appendChild(addShiftButton);
     }
 
-    let selectedTemplate = 'props_environments'; // Default template
+    // Check if shifts are stored and if a shift has started but not finished or finished within the last hour
+const relevantShift = getRelevantShiftIfExists();
+if (relevantShift) {
+    const shiftReportButton = createButton('Shift Report', '#007bff', () => {
+        showShiftReportModal(relevantShift.start, relevantShift.end, relevantShift.duration);
+    });
+    section3.appendChild(shiftReportButton);
+}
+
+// Create the "Show Shifts" button (Blue) only if shifts are stored in local storage
+    if (localStorage.getItem('parsedTandaScheduleData')) {
+        const showShiftsButton = createButton('Show Shifts', '#007bff', () => {
+            displayShiftInfo();
+        });
+        section3.appendChild(showShiftsButton);
+    }
+
+    // Create the "Reset all" button (Red)
+    const resetAllButton = document.createElement('button');
+    resetAllButton.innerText = 'Reset all';
+    resetAllButton.style.cssText = `
+        background: #f44336;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        padding: 2px 2px;
+        cursor: pointer;
+        margin-top: 10px;
+    `;
+
+
+    resetAllButton.addEventListener('click', () => {
+        if (confirm('Are you sure you want to reset all settings and stored information (Shifts, Cases, Sheets ID, etc)? This action cannot be undone.')) {
+            // Clear all relevant local storage items
+            localStorage.removeItem('parsedTandaScheduleData');
+            localStorage.removeItem('sfCaseLog');
+            localStorage.removeItem('folderId');
+            localStorage.removeItem('reminderCheckboxState');
+            templateSheetIds.forEach((_, key) => {
+                localStorage.removeItem(key);
+            });
+            alert('All settings have been reset.');
+            location.reload(); // Reload the page to apply changes
+        }
+    });
+    section3.appendChild(resetAllButton);
+
+    // Create a container for the reset button
+    const resetButtonContainer = document.createElement('div');
+    resetButtonContainer.style.cssText = 'margin-top: 0px; margin-bottom: 5px;';
+    resetButtonContainer.appendChild(resetAllButton);
+    section3.appendChild(resetButtonContainer);
+
+    // Append sections to the body
+    document.body.appendChild(section1);
+    document.body.appendChild(section2);
+    document.body.appendChild(section3);
+
+    // Create and append the collapse/expand button
+    const collapseButton = createCollapseButton();
+    document.body.appendChild(collapseButton);
+
+    // Make the sections draggable
+    makeDraggable(collapseButton);
+
+    // Observe URL changes and close modal if necessary
+    observeURLChanges();
+
+    // Check if tandaData exists and show the reminder checkbox
+    if (localStorage.getItem('parsedTandaScheduleData')) {
+        const reminderCheckbox = document.createElement('input');
+        reminderCheckbox.type = 'checkbox';
+        reminderCheckbox.id = 'reminderCheckbox';
+        reminderCheckbox.style.marginLeft = '10px';
+
+        const reminderLabel = document.createElement('label');
+        reminderLabel.htmlFor = 'reminderCheckbox';
+        reminderLabel.innerText = 'Clock-in/Out Reminders?';
+        reminderLabel.style.marginLeft = '5px';
+
+        section3.appendChild(reminderCheckbox);
+        section3.appendChild(reminderLabel);
+
+        // Restore checkbox state from localStorage
+        const savedReminderCheckboxState = localStorage.getItem('reminderCheckboxState') === 'true';
+        reminderCheckbox.checked = savedReminderCheckboxState;
+        if (savedReminderCheckboxState) {
+            setShiftReminders();
+        }
+
+        reminderCheckbox.addEventListener('change', () => {
+            localStorage.setItem('reminderCheckboxState', reminderCheckbox.checked);
+            if (reminderCheckbox.checked) {
+                setShiftReminders();
+            } else {
+                clearShiftReminders();
+            }
+        });
+    }
+}
 
     function openNewTabWithTemplate(template) {
         console.log('Create TRC button clicked');
@@ -1431,27 +1464,31 @@ async function getFabURL(caseNumber) {
 
     function viewCaseLog() {
         closeExistingModal(); // Close any existing modal or shift section
-
+    
         const caseLog = JSON.parse(localStorage.getItem('sfCaseLog')) || [];
-
+    
         // Calculate counts from the local storage
-        const newSubmissionsCount = caseLog.filter(entry => entry.caseOwner === 'NEW SUBMISSIONS').length;
-        const updatesCount = caseLog.filter(entry => entry.caseOwner === 'UPDATE').length;
-
+        const caseTypeCounts = {};
+        caseTypes.forEach((value) => {
+            caseTypeCounts[value] = caseLog.filter(entry => entry.caseOwner === value).length;
+        });
+    
         // Clear existing modal if present
         const existingModal = document.getElementById('custom-modal');
         if (existingModal) {
             existingModal.remove();
         }
-
+    
         const modal = createModal(); // Reuse your existing modal creation function
-
+    
         // Add total counts
         const totalCasesDiv = document.createElement('div');
         totalCasesDiv.style.cssText = 'margin-bottom: 10px; font-weight: bold;';
-        totalCasesDiv.innerText = `New Subs: ${newSubmissionsCount} | Updates: ${updatesCount} | Total: ${caseLog.length}`;
+        totalCasesDiv.innerText = Object.entries(caseTypeCounts)
+            .map(([type, count]) => `${type}: ${count}`)
+            .join(' | ') + ` | Total: ${caseLog.length}`;
         modal.appendChild(totalCasesDiv);
-
+    
         // Create table
         const table = document.createElement('table');
         table.style.cssText = `
@@ -1472,21 +1509,20 @@ async function getFabURL(caseNumber) {
             <tbody id="case-log-body"></tbody>
         `;
         modal.appendChild(table);
-
+    
         // Populate table body
         const tbody = document.getElementById('case-log-body');
         caseLog.slice().reverse().forEach((entry, index) => {
             const actualIndex = caseLog.length - 1 - index; // Adjust index for the original array
-
+    
             const row = document.createElement('tr');
             row.style.cssText = 'border: 1px solid #ccc;';
-
+    
             row.innerHTML = `
                 <td style="padding: 8px; border: 1px solid #ccc;">${entry.caseNumber}</td>
                 <td style="padding: 8px; border: 1px solid #ccc;">
                     <select class="case-type-dropdown" data-index="${actualIndex}" style="width: 150px;">
-                        <option value="NEW SUBMISSIONS" ${entry.caseOwner === 'NEW SUBMISSIONS' ? 'selected' : ''}>NEW SUBMISSIONS</option>
-                        <option value="UPDATE" ${entry.caseOwner === 'UPDATE' ? 'selected' : ''}>UPDATE</option>
+                        ${generateCaseTypeOptions(entry.caseOwner)}
                     </select>
                 </td>
                 <td style="padding: 8px; border: 1px solid #ccc;">${new Date(entry.timestamp).toLocaleString()}</td>
@@ -1501,16 +1537,16 @@ async function getFabURL(caseNumber) {
                     ">Delete</button>
                 </td>
             `;
-
+    
             const deleteButton = row.querySelector('button');
             deleteButton.addEventListener('click', () => {
                 deleteCaseLog(actualIndex); // Correctly call the delete function
                 viewCaseLog(); // Refresh the table
             });
-
+    
             tbody.appendChild(row);
         });
-
+    
         // Add event listener for dropdown changes
         document.querySelectorAll('.case-type-dropdown').forEach(dropdown => {
             dropdown.addEventListener('change', (event) => {
@@ -1519,9 +1555,175 @@ async function getFabURL(caseNumber) {
                 updateCaseOwner(index, newCaseOwner);
             });
         });
-
+    
         // Add buttons (Clear Log, Copy Cases, Download Log)
-        addLogButtons(modal, caseLog);
+        const buttonContainer = document.createElement('div');
+        buttonContainer.style.cssText = `
+            display: flex;
+            justify-content: space-between;
+            margin-top: 10px;
+        `;
+    
+        const clearButton = document.createElement('button');
+        clearButton.innerText = 'Clear Log';
+        clearButton.style.cssText = `
+            background: red;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            padding: 10px;
+            cursor: pointer;
+            margin-right: 10px;
+        `;
+        clearButton.addEventListener('click', () => {
+            if (confirm('Are you sure you want to remove all the stored cases?')) {
+                localStorage.removeItem('sfCaseLog');
+                console.log('Log cleared.');
+                modal.remove(); // Close the modal
+            }
+        });
+        buttonContainer.appendChild(clearButton);
+    
+        const copyButton = document.createElement('button');
+        copyButton.innerText = 'Copy Case Numbers';
+        copyButton.style.cssText = `
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            padding: 10px;
+            cursor: pointer;
+            margin-right: 10px;
+        `;
+        copyButton.addEventListener('click', () => {
+            // Group cases by Case Type
+            const groupedCases = caseLog.reduce((acc, entry) => {
+                const caseType = caseTypes.get(entry.caseOwner) || entry.caseOwner;
+                if (!acc[caseType]) acc[caseType] = [];
+                acc[caseType].push(entry.caseNumber);
+                return acc;
+            }, {});
+    
+            // Format the grouped cases for clipboard
+            const clipboardText = Object.entries(groupedCases)
+                .map(([type, cases]) => `${type}: ${cases.join(', ')}`)
+                .join('\n');
+    
+            navigator.clipboard.writeText(clipboardText).then(() => {
+                console.log('Copied to clipboard:', clipboardText);
+                alert('Case numbers copied to clipboard!');
+            });
+        });
+        buttonContainer.appendChild(copyButton);
+    
+        const downloadButton = document.createElement('button');
+        downloadButton.innerText = 'Download Log as .txt';
+        downloadButton.style.cssText = `
+            background: #28a745;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            padding: 10px;
+            cursor: pointer;
+            margin-right: 10px;
+        `;
+        downloadButton.addEventListener('click', () => {
+            const logText = caseLog
+                .map((entry) =>
+                    `Case Number: ${entry.caseNumber}\nCase Type: ${entry.caseOwner}\nTime: ${new Date(entry.timestamp).toLocaleString()}`
+                )
+                .join('\n\n');
+            const blob = new Blob([logText], { type: 'text/plain' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = 'case_log.txt';
+            link.click();
+        });
+        buttonContainer.appendChild(downloadButton);
+    
+        const addCaseButton = document.createElement('button');
+        addCaseButton.innerText = 'Add Case';
+        addCaseButton.style.cssText = `
+            background: #28a745;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            padding: 10px;
+            cursor: pointer;
+        `;
+        addCaseButton.addEventListener('click', () => {
+            addNewCaseRow(tbody);
+        });
+        buttonContainer.appendChild(addCaseButton);
+    
+        modal.appendChild(buttonContainer);
+    
+        document.body.appendChild(modal);
+    }
+    
+    function addNewCaseRow(tbody) {
+        const row = document.createElement('tr');
+        row.style.cssText = 'border: 1px solid #ccc;';
+    
+        row.innerHTML = `
+            <td style="padding: 8px; border: 1px solid #ccc;">
+                <input type="number" class="new-case-number" style="width: 100%;">
+            </td>
+            <td style="padding: 8px; border: 1px solid #ccc;">
+                <select class="new-case-type" style="width: 100%;">
+                    ${generateCaseTypeOptions('')}
+                </select>
+            </td>
+            <td style="padding: 8px; border: 1px solid #ccc;">
+                ${new Date().toLocaleString()}
+            </td>
+            <td style="padding: 8px; border: 1px solid #ccc;">
+                <button class="save-case-button" style="
+                    background: #007bff;
+                    color: white;
+                    border: none;
+                    border-radius: 5px;
+                    padding: 5px 10px;
+                    cursor: pointer;
+                ">Save</button>
+            </td>
+        `;
+    
+        const saveButton = row.querySelector('.save-case-button');
+        saveButton.addEventListener('click', () => {
+            const newRows = tbody.querySelectorAll('tr');
+            newRows.forEach(newRow => {
+                const caseNumberInput = newRow.querySelector('.new-case-number');
+                const caseTypeSelect = newRow.querySelector('.new-case-type');
+    
+                if (caseNumberInput && caseTypeSelect) {
+                    const caseNumber = caseNumberInput.value.trim();
+                    const caseType = caseTypeSelect.value;
+    
+                    if (caseNumber && caseType) {
+                        logCaseNumber(caseNumber, caseType);
+                    }
+                }
+            });
+            viewCaseLog(); // Refresh the table
+        });
+    
+        tbody.appendChild(row);
+    }
+    
+    // Function to generate case type options, ensuring no repeated values
+    function generateCaseTypeOptions(selectedValue) {
+        const seenValues = new Set();
+        return Array.from(caseTypes.values()).filter(value => {
+            if (seenValues.has(value)) {
+                return false;
+            } else {
+                seenValues.add(value);
+                return true;
+            }
+        }).map(value => `
+            <option value="${value}" ${selectedValue === value ? 'selected' : ''}>${value}</option>
+        `).join('');
     }
 
     // Function to update the case owner in the log
@@ -1601,17 +1803,17 @@ async function getFabURL(caseNumber) {
         copyButton.addEventListener('click', () => {
             // Group cases by Case Type
             const groupedCases = caseLog.reduce((acc, entry) => {
-                const key = entry.caseOwner === 'NEW SUBMISSIONS' ? 'New submissions' : 'Updates';
-                if (!acc[key]) acc[key] = [];
-                acc[key].push(entry.caseNumber);
+                const caseType = caseTypes.get(entry.caseOwner) || entry.caseOwner;
+                if (!acc[caseType]) acc[caseType] = [];
+                acc[caseType].push(entry.caseNumber);
                 return acc;
             }, {});
-
+        
             // Format the grouped cases for clipboard
             const clipboardText = Object.entries(groupedCases)
                 .map(([type, cases]) => `${type}: ${cases.join(', ')}`)
                 .join('\n');
-
+        
             navigator.clipboard.writeText(clipboardText).then(() => {
                 console.log('Copied to clipboard:', clipboardText);
                 alert('Case numbers copied to clipboard!');
@@ -1684,6 +1886,7 @@ async function getFabURL(caseNumber) {
     //Function for get-info button
 
     function processListingContent() {
+        closeExistingModal();
         const caseNumber = getCaseNumber();
 
         if (!caseNumber) {
@@ -1721,7 +1924,7 @@ async function getFabURL(caseNumber) {
 
         if (!listingSpan) {
             console.error("Could not find the 'Listing Content' section.");
-            alert("Could not find the 'Listing Content' section.");
+            alert("Could not find the 'Listing Content' section, you must be in a New Submission or Update case to use this.");
             return [];
         }
 
@@ -1803,11 +2006,11 @@ async function getFabURL(caseNumber) {
                     const yellowImg = findElementByAttribute(sectionElement, 'img', 'src', '/img/samples/color_yellow.gif');
     
                     if (greenImg.length > 0) {
-                        colorSquare = '<span style="display: inline-block; width: 20px; height: 20px; background-color: green !important; margin-right: 5px; margin-bottom: -3px !important;" title="Seller Warning Indicator"></span>';
+                        colorSquare = '<span style="display: inline-block; width: 20px; height: 20px; background-color: green !important; margin-right: 5px; margin-bottom: -3px !important;" title="Green Seller"></span>';
                     } else if (cyanImg.length > 0) {
-                        colorSquare = '<span style="display: inline-block; width: 20px; height: 20px; background-color: cyan !important; margin-right: 5px; margin-bottom: -3px !important;" title="Seller Warning Indicator"></span>';
+                        colorSquare = '<span style="display: inline-block; width: 20px; height: 20px; background-color: cyan !important; margin-right: 5px; margin-bottom: -3px !important;" title="Blue Seller"></span>';
                     } else if (yellowImg.length > 0) {
-                        colorSquare = '<span style="display: inline-block; width: 20px; height: 20px; background-color: #fcca03 !important; margin-right: 5px; margin-bottom: -3px !important;" title="Seller Warning Indicator"></span>';
+                        colorSquare = '<span style="display: inline-block; width: 20px; height: 20px; background-color: #fcca03 !important; margin-right: 5px; margin-bottom: -3px !important;" title="Yellow Seller"></span>';
                     } else {
                         console.log('No matching img element found'); // Debugging log
                     }
@@ -2062,26 +2265,25 @@ async function getFabURL(caseNumber) {
     //Function to change the status of the SF Case
     function changeStatus(buttonId) {
         console.log('Starting approval process...');
-
-
+    
         // Step 1: Locate and Click the Edit Button
         const editButtons = getAllShadowElements(document.body, 'button[title="Edit Status"]');
         const editButton = editButtons[0]; // Assuming the first found "Edit Status" button is correct
         if (editButton) {
             editButton.click();
-
+    
             setTimeout(() => {
                 // Step 2: Locate and Expand the Dropdown
                 const dropdownButtons = getAllShadowElements(document.body, 'button[aria-label="Status"]');
                 const dropdownButton = dropdownButtons[0];
                 if (dropdownButton) {
                     dropdownButton.click();
-
+    
                     setTimeout(() => {
                         // Step 3: Select the new status according to the clicked button
                         const dropdownItems = getAllShadowElements(document.body, 'lightning-base-combobox-item');
                         let approvalOption;
-
+    
                         if (buttonId === 'approve-button') {
                             approvalOption = Array.from(dropdownItems).find(option =>
                                 option.getAttribute('data-value') === 'Ops Review Complete - Approved'
@@ -2094,11 +2296,15 @@ async function getFabURL(caseNumber) {
                             approvalOption = Array.from(dropdownItems).find(option =>
                                 option.getAttribute('data-value') === 'Ops Review Complete - Rejected'
                             );
+                        } else if (buttonId === 'close-button') {
+                            approvalOption = Array.from(dropdownItems).find(option =>
+                                option.getAttribute('data-value') === 'Closed'
+                            );
                         }
-
+    
                         if (approvalOption) {
                             approvalOption.click();
-
+    
                             setTimeout(() => {
                                 // Step 4: Locate and Click the Save Button
                                 const saveButtons = getAllShadowElements(document.body, 'button[name="SaveEdit"]');
@@ -2123,64 +2329,71 @@ async function getFabURL(caseNumber) {
         }
     }
 
-    // Function to get the case owner
+    // Function to get the case owner (case type)
+
+    const caseTypes = new Map([
+        ['Fab Submission Support New', 'NEW SUBMISSIONS'],
+        ['Fab Submission Support Update', 'UPDATE'],
+        ['FAB Support Queue', 'FAB SUPPORT'],
+        ['FAB Seller Support', 'FAB SUPPORT'],
+        // Add new case types here
+    ]);
+
     function getCaseOwner() {
         const caseNumber = getCaseNumber();
         if (!caseNumber) {
             console.error('Case Number not found.');
             return '(Unknown Case Type)';
         }
-
+    
         console.log('Case Number:', caseNumber);
-
+    
         // Find the aria-controls value associated with the active tab
         const tabElement = document.querySelector(`a[title^="${caseNumber}"]`);
         if (!tabElement) {
             console.error('Tab element not found.');
             return '(Unknown Case Type)';
         }
-
+    
         const ariaControls = tabElement.getAttribute('aria-controls');
         if (!ariaControls) {
             console.error('aria-controls attribute not found.');
             return '(Unknown Case Type)';
         }
-
+    
         console.log('aria-controls:', ariaControls);
-
+    
         // Locate the section element with the corresponding ID
         const sectionElement = document.getElementById(ariaControls);
         if (!sectionElement) {
             console.error('Section element not found.');
             return '(Unknown Case Type)';
         }
-
+    
         console.log('Section element found:', sectionElement);
-
+    
         // Retrieve the case owner directly from the section using getAllShadowElements
         const caseOwnerElements = getAllShadowElements(sectionElement, 'slot');
         let caseOwner = '(Unknown Case Type)';
-
+    
         caseOwnerElements.forEach(element => {
-            if (element.textContent.includes('Fab Submission Support New')) {
-                caseOwner = 'NEW SUBMISSIONS';
-            } else if (element.textContent.includes('Fab Submission Support Update')) {
-                caseOwner = 'UPDATE';
-            }
+            caseTypes.forEach((value, key) => {
+                if (element.textContent.includes(key)) {
+                    caseOwner = value;
+                }
+            });
         });
-
+    
         if (caseOwner === '(Unknown Case Type)') {
             // If not found in slot elements, use findTextInShadow
-            const foundNodeNew = findTextInShadow(sectionElement, 'Fab Submission Support New');
-            const foundNodeUpdate = findTextInShadow(sectionElement, 'Fab Submission Support Update');
-
-            if (foundNodeNew) {
-                caseOwner = 'NEW SUBMISSIONS';
-            } else if (foundNodeUpdate) {
-                caseOwner = 'UPDATE';
-            }
+            caseTypes.forEach((value, key) => {
+                const foundNode = findTextInShadow(sectionElement, key);
+                if (foundNode) {
+                    caseOwner = value;
+                }
+            });
         }
-
+    
         console.log('Case Owner:', caseOwner);
         return caseOwner;
     }
@@ -2425,284 +2638,355 @@ async function getFabURL(caseNumber) {
         });
 
 
-    function showShiftReportModal(start, end, duration) {
-        const caseLog = JSON.parse(localStorage.getItem('sfCaseLog')) || [];
-        const newSubmissionsCount = caseLog.filter(entry => entry.caseOwner === 'NEW SUBMISSIONS').length;
-        const updatesCount = caseLog.filter(entry => entry.caseOwner === 'UPDATE').length;
-
-        const totalMinutes = (new Date(end) - new Date(start)) / (1000 * 60);
-
-        const modal = document.createElement('div');
-        modal.id = 'custom-modal';
-        modal.style.cssText = `
-            position: fixed;
-            top: 20%;
-            left: 50%;
-            transform: translate(-50%, -20%);
-            width: 400px;
-            background: white;
-            border: 2px solid #ccc;
-            border-radius: 10px;
-            padding: 15px;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-            z-index: 10001;
-        `;
-
-        const closeButton = document.createElement('button');
-        closeButton.innerText = 'Close';
-        closeButton.style.cssText = `
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            background: red;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            padding: 5px 10px;
-            cursor: pointer;
-        `;
-        closeButton.addEventListener('click', () => {
-            modal.remove();
-        });
-
-        const customEventCheckbox = document.createElement('input');
-        customEventCheckbox.type = 'checkbox';
-        customEventCheckbox.id = 'customEventCheckbox';
-        customEventCheckbox.style.marginRight = '10px';
-
-        const customEventLabel = document.createElement('label');
-        customEventLabel.htmlFor = 'customEventCheckbox';
-        customEventLabel.innerText = 'Add custom event (Meetings, outages, etc.)';
-
-        const customEventInput = document.createElement('input');
-        customEventInput.type = 'number';
-        customEventInput.id = 'customEventInput';
-        customEventInput.placeholder = 'Minutes';
-        customEventInput.style.cssText = `
-            display: none;
-            margin-top: 10px;
-            width: 50%;
-            padding: 5px;
-            border: 1px solid #ccc;
-            border-radius: 5px;
-        `;
-
-        customEventCheckbox.addEventListener('change', () => {
-            if (customEventCheckbox.checked) {
-                customEventInput.style.display = 'block';
-            } else {
-                customEventInput.style.display = 'none';
-            }
-            updateProductivity();
-        });
-
-        customEventInput.addEventListener('input', () => {
-            updateProductivity();
-        });
-
-        // Custom multiplier checkbox and slider
-        const customMultiplierCheckbox = document.createElement('input');
-        customMultiplierCheckbox.type = 'checkbox';
-        customMultiplierCheckbox.id = 'customMultiplierCheckbox';
-        customMultiplierCheckbox.style.marginRight = '10px';
-
-        const customMultiplierLabel = document.createElement('label');
-        customMultiplierLabel.htmlFor = 'customMultiplierCheckbox';
-        customMultiplierLabel.innerText = 'Custom multiplier';
-
-        const customMultiplierSlider = document.createElement('input');
-        customMultiplierSlider.type = 'range';
-        customMultiplierSlider.id = 'customMultiplierSlider';
-        customMultiplierSlider.min = '0.05';
-        customMultiplierSlider.max = '10';
-        customMultiplierSlider.step = '0.1';
-        customMultiplierSlider.value = '1.5';
-        customMultiplierSlider.style.cssText = `
-            display: none;
-            width: 100%;
-            margin-top: 10px;
-        `;
-
-        const customMultiplierValue = document.createElement('span');
-        customMultiplierValue.innerText = '1.5';
-        customMultiplierValue.style.cssText = `
-            display: none;
-            margin-left: 10px;
-        `;
-
-        const customMultiplierText = document.createElement('p');
-        customMultiplierText.innerText = 'Change the multiplier to meet your needs, E.G: If your updates took more time than normal for some reason set a value < 1';
-        customMultiplierText.style.cssText = `
-            display: none;
-            font-size: 12px;
-            color: gray;
-            margin-top: 10px;
-        `;
-
-        customMultiplierCheckbox.addEventListener('change', () => {
-            if (customMultiplierCheckbox.checked) {
-                customMultiplierSlider.style.display = 'block';
-                customMultiplierValue.style.display = 'inline';
-                customMultiplierText.style.display = 'block';
-            } else {
-                customMultiplierSlider.style.display = 'none';
-                customMultiplierValue.style.display = 'none';
-                customMultiplierText.style.display = 'none';
-            }
-            updateProductivity();
-        });
-
-        customMultiplierSlider.addEventListener('input', () => {
-            customMultiplierValue.innerText = customMultiplierSlider.value;
-            updateProductivity();
-        });
-
-        // Convert start and end times to PST
-        const startPST = new Date(start).toLocaleString('en-US', { timeZone: 'America/Los_Angeles' });
-        const endPST = new Date(end).toLocaleString('en-US', { timeZone: 'America/Los_Angeles' });
-
-        modal.innerHTML = `
-    <h2 style="font-size: 18px;"><strong>Shift Report</strong></h2>
-    <hr>
-    <p><strong>Date:</strong> ${new Date(start).toLocaleDateString()}</p>
-    <p><strong>Start (PST):</strong> ${startPST}</p>
-    <p><strong>End (PST):</strong> ${endPST}</p>
-    <p><strong>Duration:</strong> ${duration}</p>
-    <hr>
-    <p id="newSubmissionsTime"><strong>Time - New submissions:</strong></p>
-    <p id="updatesTime"><strong>Time - Updates:</strong></p>
-    <div id="customMultiplierContainerPlaceholder"></div>
-    <hr>
-    <p><strong>New Submissions:</strong> ${newSubmissionsCount}</p>
-    <p><strong>Updates:</strong> ${updatesCount}</p>
-    <hr>
-    <h3>Productivity</h3>
-    <br>
-    <table id="productivityTable" style="width: 100%; border-collapse: collapse;">
-        <tr>
-            <th style="border: 1px solid #ccc; padding: 8px;">APH (Actions per hour)</th>
-            <th style="border: 1px solid #ccc; padding: 8px;">New submissions / hour</th>
-            <th style="border: 1px solid #ccc; padding: 8px;">Updates / hour</th>
-        </tr>
-        <tr>
-            <td id="aph" style="border: 1px solid #ccc; padding: 8px;"></td>
-            <td id="newSubmissionsPerHour" style="border: 1px solid #ccc; padding: 8px;"></td>
-            <td id="updatesPerHour" style="border: 1px solid #ccc; padding: 8px;"></td>
-        </tr>
-    </table>
-    <br>
-`;
-
-// Create a container for the custom multiplier elements
-const customMultiplierContainer = document.createElement('div');
-customMultiplierContainer.style.cssText = 'margin-top: 20px;'; // Add margin to create visual separation
-
-// Append custom multiplier elements to the container
-customMultiplierContainer.appendChild(customMultiplierCheckbox);
-customMultiplierContainer.appendChild(customMultiplierLabel);
-customMultiplierContainer.appendChild(customMultiplierSlider);
-customMultiplierContainer.appendChild(customMultiplierValue);
-customMultiplierContainer.appendChild(customMultiplierText);
-
-// Replace the placeholder with the custom multiplier container
-const placeholder = modal.querySelector('#customMultiplierContainerPlaceholder');
-placeholder.replaceWith(customMultiplierContainer);
-
-
-
-        const copyButton = document.createElement('button');
-        copyButton.innerText = 'Copy cases';
-        copyButton.style.cssText = `
-            position: absolute;
-            bottom: 10px;
-            right: 10px;
-            background: #007bff;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            padding: 5px 10px;
-            cursor: pointer;
-        `;
-        copyButton.addEventListener('click', () => {
-            // Group cases by Case Type
-            const groupedCases = caseLog.reduce((acc, entry) => {
-                const key = entry.caseOwner === 'NEW SUBMISSIONS' ? 'New submissions' : 'Updates';
-                if (!acc[key]) acc[key] = [];
-                acc[key].push(entry.caseNumber);
-                return acc;
-            }, {});
-
-            // Format the grouped cases for clipboard
-            const clipboardText = Object.entries(groupedCases)
-                .map(([type, cases]) => `${type}: ${cases.join(', ')}`)
-                .join('\n');
-
-            navigator.clipboard.writeText(clipboardText).then(() => {
-                alert('Case numbers copied to clipboard!');
+        function showShiftReportModal(start, end, duration) {
+            closeExistingModal();
+            const caseLog = JSON.parse(localStorage.getItem('sfCaseLog')) || [];
+            const totalMinutes = Math.round((new Date(end) - new Date(start)) / (1000 * 60)); // Ensure integer minutes
+        
+            // Calculate counts and initialize multipliers
+            const caseTypeCounts = {};
+            const caseTypeMultipliers = {};
+            caseTypes.forEach((value) => {
+                caseTypeCounts[value] = caseLog.filter(entry => entry.caseOwner === value).length;
+                caseTypeMultipliers[value] = value === 'NEW SUBMISSIONS' ? 1.5 : 1; // Default multiplier
             });
-        });
-
-        modal.appendChild(customEventCheckbox);
-        modal.appendChild(customEventLabel);
-        modal.appendChild(customEventInput);
-        modal.appendChild(copyButton);
-        modal.appendChild(closeButton);
-
-
-
-        document.body.appendChild(modal);
-
-        function updateProductivity() {
-            const customMinutes = parseInt(customEventInput.value) || 0;
-            const effectiveDuration = totalMinutes - customMinutes;
-
-            const customMultiplier = customMultiplierCheckbox.checked ? parseFloat(customMultiplierSlider.value) : 1.5;
-
-            const { newSubmissionsTime, updatesTime } = calculateWorkTimeWithCustomMultiplier(effectiveDuration, newSubmissionsCount, updatesCount, customMultiplier);
-
-            document.getElementById('newSubmissionsTime').innerText = `Time - New submissions: ${newSubmissionsTime} minutes`;
-            document.getElementById('updatesTime').innerText = `Time - Updates: ${updatesTime} minutes`;
-
-            const aph = (newSubmissionsCount + updatesCount) / (effectiveDuration / 60);
-            const newSubmissionsPerHour = newSubmissionsCount > 0 ? newSubmissionsCount / (newSubmissionsTime / 60) : 0;
-            const updatesPerHour = updatesCount > 0 ? updatesCount / (updatesTime / 60) : 0;
-
-            document.getElementById('aph').innerText = aph.toFixed(2);
-            document.getElementById('newSubmissionsPerHour').innerText = newSubmissionsPerHour.toFixed(2);
-            document.getElementById('updatesPerHour').innerText = updatesPerHour.toFixed(2);
+        
+            const totalCases = Object.values(caseTypeCounts).reduce((sum, count) => sum + count, 0);
+        
+            const modal = document.createElement('div');
+            modal.id = 'custom-modal';
+            modal.style.cssText = `
+                position: fixed;
+                top: 20%;
+                left: 50%;
+                transform: translate(-50%, -20%);
+                width: 50%;
+                background: white;
+                border: 2px solid yellow;
+                border-radius: 10px;
+                padding: 15px;
+                box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+                z-index: 10001;
+            `;
+        
+            const closeButton = document.createElement('button');
+            closeButton.innerText = 'Close';
+            closeButton.style.cssText = `
+                position: absolute;
+                top: 10px;
+                right: 10px;
+                background: red;
+                color: white;
+                border: none;
+                border-radius: 5px;
+                padding: 5px 10px;
+                cursor: pointer;
+            `;
+            closeButton.addEventListener('click', () => {
+                modal.remove();
+            });
+        
+            const customEventCheckbox = document.createElement('input');
+            customEventCheckbox.type = 'checkbox';
+            customEventCheckbox.id = 'customEventCheckbox';
+            customEventCheckbox.style.marginRight = '10px';
+        
+            const customEventLabel = document.createElement('label');
+            customEventLabel.htmlFor = 'customEventCheckbox';
+            customEventLabel.innerText = 'Add custom event/Task, etc. (Meetings, Horde outages, etc.)';
+        
+            const customEventInput = document.createElement('input');
+            customEventInput.type = 'number';
+            customEventInput.id = 'customEventInput';
+            customEventInput.placeholder = 'Minutes';
+            customEventInput.style.cssText = `
+                display: none;
+                margin-top: 10px;
+                width: 50%;
+                padding: 5px;
+                border: 1px solid #ccc;
+                border-radius: 5px;
+            `;
+        
+            customEventCheckbox.addEventListener('change', () => {
+                if (customEventCheckbox.checked) {
+                    customEventInput.style.display = 'block';
+                } else {
+                    customEventInput.style.display = 'none';
+                }
+                updateProductivity();
+            });
+        
+            customEventInput.addEventListener('input', () => {
+                updateProductivity();
+            });
+        
+            // Custom multiplier checkbox and label
+            const customMultiplierCheckbox = document.createElement('input');
+            customMultiplierCheckbox.type = 'checkbox';
+            customMultiplierCheckbox.id = 'customMultiplierCheckbox';
+            customMultiplierCheckbox.style.marginRight = '10px';
+        
+            const customMultiplierLabel = document.createElement('label');
+            customMultiplierLabel.htmlFor = 'customMultiplierCheckbox';
+            customMultiplierLabel.innerText = 'Custom multipliers';
+        
+            // Create a container for the custom multiplier elements
+            const customMultiplierContainer = document.createElement('div');
+            customMultiplierContainer.id = 'customMultiplierContainer';
+            customMultiplierContainer.style.cssText = 'margin-top: 20px; display: none;'; // Add margin to create visual separation
+        
+            // Create a table for case type data
+            const caseTypeTable = document.createElement('table');
+            caseTypeTable.style.cssText = 'width: 100%; border-collapse: collapse; margin-top: 20px; table-layout: fixed;';
+            caseTypeTable.innerHTML = `
+                <thead>
+                    <tr>
+                        <th style="border: 1px solid #ccc; padding: 8px;">Case Type</th>
+                        <th style="border: 1px solid #ccc; padding: 8px;">Time</th>
+                        <th style="border: 1px solid #ccc; padding: 8px;">Count</th>
+                        <th style="border: 1px solid #ccc; padding: 8px; width: 40%;">Custom Multiplier</th>
+                    </tr>
+                </thead>
+                <tbody id="caseTypeTableBody"></tbody>
+            `;
+        
+            const caseTypeTableBody = caseTypeTable.querySelector('#caseTypeTableBody');
+        
+            // Add rows for each case type with a count > 0
+            Object.entries(caseTypeCounts).forEach(([caseType, count]) => {
+                if (count > 0) {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td style="border: 1px solid #ccc; padding: 8px;">${caseType}</td>
+                        <td id="${caseType.replace(/\s+/g, '')}Time" style="border: 1px solid #ccc; padding: 8px;"></td>
+                        <td style="border: 1px solid #ccc; padding: 8px;">${count}</td>
+                        <td style="border: 1px solid #ccc; padding: 8px; width: 150px;">
+                            <input type="checkbox" id="${caseType.replace(/\s+/g, '')}CustomMultiplierCheckbox" style="margin-right: 10px;">
+                            <input type="range" id="${caseType.replace(/\s+/g, '')}Multiplier" min="0.05" max="10" step="0.05" value="${caseTypeMultipliers[caseType]}" style="width: 80%; display: none;">
+                            <span id="${caseType.replace(/\s+/g, '')}MultiplierValue" style="display: none; width: 40px; display: inline-block;">${caseTypeMultipliers[caseType]}</span>
+                        </td>
+                    `;
+        
+                    caseTypeTableBody.appendChild(row);
+                }
+            });
+        
+            const copyButton = document.createElement('button');
+            copyButton.innerText = 'Copy cases';
+            copyButton.style.cssText = `
+                position: absolute;
+                bottom: 10px;
+                right: 10px;
+                background: #007bff;
+                color: white;
+                border: none;
+                border-radius: 5px;
+                padding: 5px 10px;
+                cursor: pointer;
+            `;
+            copyButton.addEventListener('click', () => {
+                // Group cases by Case Type
+                const groupedCases = caseLog.reduce((acc, entry) => {
+                    const key = entry.caseOwner;
+                    if (!acc[key]) acc[key] = [];
+                    acc[key].push(entry.caseNumber);
+                    return acc;
+                }, {});
+        
+                // Format the grouped cases for clipboard
+                const clipboardText = Object.entries(groupedCases)
+                    .map(([type, cases]) => `${type}: ${cases.join(', ')}`)
+                    .join('\n');
+        
+                navigator.clipboard.writeText(clipboardText).then(() => {
+                    alert('Case numbers copied to clipboard!');
+                });
+            });
+        
+            // Convert start and end times to PST
+            const startPST = new Date(start).toLocaleString('en-US', { timeZone: 'America/Los_Angeles' });
+            const endPST = new Date(end).toLocaleString('en-US', { timeZone: 'America/Los_Angeles' });
+        
+            modal.innerHTML = `
+                <h2 style="font-size: 18px; text-align: center;"><strong>Shift Report | <a href="https://docs.google.com/forms/d/e/1FAIpQLScAMutydoYRf-fNJ_56pggsJCH2r1alat90ihD0-LfM7Tc03Q/viewform" target="_blank">Form Link</a></strong></h2>
+                <hr>
+                <p><strong>Date:</strong> ${new Date(start).toLocaleDateString()}</p>
+                <p><strong>Start (PST):</strong> ${startPST}</p>
+                <p><strong>End (PST):</strong> ${endPST}</p>
+                <p><strong>Duration:</strong> ${duration}</p>
+                <hr>
+                <p><strong>Total Cases:</strong> ${totalCases}</p>
+                ${caseTypeTable.outerHTML}
+                <br>
+                <h3>Productivity</h3>
+                <br>
+                <table id="productivityTable" style="width: 100%; border-collapse: collapse;">
+                    <tr>
+                        <th style="border: 1px solid #ccc; padding: 8px;">APH (Actions per hour)</th>
+                        ${generateCaseTypeHeaders(caseTypeCounts)}
+                    </tr>
+                    <tr>
+                        <td id="aph" style="border: 1px solid #ccc; padding: 8px;"></td>
+                        ${generateCaseTypeProductivityCells(caseTypeCounts)}
+                    </tr>
+                </table>
+                <br>
+            `;
+        
+            modal.appendChild(customEventCheckbox);
+            modal.appendChild(customEventLabel);
+            modal.appendChild(customEventInput);
+            modal.appendChild(copyButton);
+            modal.appendChild(closeButton);
+        
+            // Replace the placeholder with the custom multiplier container
+            const placeholder = modal.querySelector('#customMultiplierContainerPlaceholder');
+            if (placeholder) {
+                placeholder.replaceWith(customMultiplierCheckbox);
+                customMultiplierCheckbox.insertAdjacentElement('afterend', customMultiplierLabel);
+                customMultiplierLabel.insertAdjacentElement('afterend', customMultiplierContainer);
+            }
+        
+            document.body.appendChild(modal);
+        
+            // Attach event listeners to the dynamically created elements
+            Object.entries(caseTypeCounts).forEach(([caseType, count]) => {
+                if (count > 0) {
+                    const checkbox = document.getElementById(`${caseType.replace(/\s+/g, '')}CustomMultiplierCheckbox`);
+                    const slider = document.getElementById(`${caseType.replace(/\s+/g, '')}Multiplier`);
+                    const valueDisplay = document.getElementById(`${caseType.replace(/\s+/g, '')}MultiplierValue`);
+        
+                    checkbox.addEventListener('change', () => {
+                        if (checkbox.checked) {
+                            slider.style.display = 'inline';
+                            valueDisplay.style.display = 'inline';
+                        } else {
+                            slider.style.display = 'none';
+                            valueDisplay.style.display = 'inline'; // Ensure the value display is visible
+                            slider.value = caseTypeMultipliers[caseType]; // Reset to default value
+                            valueDisplay.innerText = caseTypeMultipliers[caseType]; // Update display
+                        }
+                        updateProductivity();
+                    });
+        
+                    slider.addEventListener('input', () => {
+                        valueDisplay.innerText = slider.value;
+                        updateProductivity();
+                    });
+                }
+            });
+        
+            customMultiplierCheckbox.addEventListener('change', () => {
+                const customMultiplierContainer = document.getElementById('customMultiplierContainer');
+                if (customMultiplierContainer) {
+                    if (customMultiplierCheckbox.checked) {
+                        customMultiplierContainer.style.display = 'block';
+                    } else {
+                        customMultiplierContainer.style.display = 'none';
+                    }
+                    updateProductivity();
+                }
+            });
+        
+            function updateProductivity() {
+                const customMinutes = parseInt(customEventInput.value) || 0;
+                const effectiveDuration = totalMinutes - customMinutes;
+        
+                const customMultipliers = {};
+                Object.entries(caseTypeCounts).forEach(([caseType, count]) => {
+                    if (count > 0) {
+                        const slider = document.getElementById(`${caseType.replace(/\s+/g, '')}Multiplier`);
+                        customMultipliers[caseType] = slider ? parseFloat(slider.value) : caseTypeMultipliers[caseType];
+                    }
+                });
+        
+                console.log('Effective Duration:', effectiveDuration);
+                console.log('Custom Multipliers:', customMultipliers);
+        
+                const workTimes = calculateWorkTimesWithCustomMultipliers(effectiveDuration, caseTypeCounts, customMultipliers);
+        
+                console.log('Work Times:', workTimes);
+        
+                Object.entries(workTimes).forEach(([caseType, time]) => {
+                    const timeElement = document.getElementById(`${caseType.replace(/\s+/g, '')}Time`);
+                    if (timeElement) {
+                        timeElement.innerText = `${Math.round(time)} minutes`;
+                    }
+                });
+        
+                const aph = Object.values(caseTypeCounts).reduce((sum, count) => sum + count, 0) / (effectiveDuration / 60);
+                document.getElementById('aph').innerText = aph.toFixed(2);
+        
+                Object.entries(caseTypeCounts).forEach(([caseType, count]) => {
+                    const time = workTimes[caseType];
+                    const perHour = count > 0 ? count / (time / 60) : 0;
+                    const perHourElement = document.getElementById(`${caseType.replace(/\s+/g, '')}PerHour`);
+                    if (perHourElement) {
+                        perHourElement.innerText = perHour.toFixed(2);
+                    }
+                });
+        
+                // Update slider values display
+                Object.entries(caseTypeCounts).forEach(([caseType, count]) => {
+                    if (count > 0) {
+                        const slider = document.getElementById(`${caseType.replace(/\s+/g, '')}Multiplier`);
+                        const valueDisplay = document.getElementById(`${caseType.replace(/\s+/g, '')}MultiplierValue`);
+                        if (slider && valueDisplay) {
+                            valueDisplay.innerText = slider.value;
+                        }
+                    }
+                });
+            }
+        
+            function calculateWorkTimesWithCustomMultipliers(shiftDurationMinutes, caseTypeCounts, customMultipliers) {
+                const totalWeightedCases = Object.entries(caseTypeCounts).reduce((sum, [caseType, count]) => {
+                    if (count > 0) {
+                        const multiplier = customMultipliers[caseType];
+                        if (isNaN(multiplier) || isNaN(count)) {
+                            console.error(`Invalid multiplier or count for case type ${caseType}: multiplier=${multiplier}, count=${count}`);
+                            return sum;
+                        }
+                        return sum + (count * multiplier);
+                    }
+                    return sum;
+                }, 0);
+        
+                console.log('Total Weighted Cases:', totalWeightedCases);
+        
+                const workTimes = {};
+                Object.entries(caseTypeCounts).forEach(([caseType, count]) => {
+                    if (count > 0) {
+                        const multiplier = customMultipliers[caseType];
+                        if (isNaN(multiplier) || isNaN(count) || totalWeightedCases === 0) {
+                            console.error(`Invalid calculation for case type ${caseType}: multiplier=${multiplier}, count=${count}, totalWeightedCases=${totalWeightedCases}`);
+                            workTimes[caseType] = NaN;
+                        } else {
+                            workTimes[caseType] = (shiftDurationMinutes * (count * multiplier)) / totalWeightedCases;
+                        }
+                    }
+                });
+        
+                return workTimes;
+            }
+        
+            updateProductivity(); // Initial calculation
+        }
+        
+        function generateCaseTypeHeaders(caseTypeCounts) {
+            return Object.keys(caseTypeCounts).map(caseType => `
+                <th style="border: 1px solid #ccc; padding: 8px;">${caseType} / hour</th>
+            `).join('');
+        }
+        
+        function generateCaseTypeProductivityCells(caseTypeCounts) {
+            return Object.keys(caseTypeCounts).map(caseType => `
+                <td id="${caseType.replace(/\s+/g, '')}PerHour" style="border: 1px solid #ccc; padding: 8px;"></td>
+            `).join('');
         }
 
-        updateProductivity(); // Initial calculation
-    }
 
-    function calculateWorkTimeWithCustomMultiplier(shiftDurationMinutes, newSubmissions, updates, customMultiplier) {
-        // Edge cases: No submissions or updates
-        if (newSubmissions === 0) {
-            return {
-                newSubmissionsTime: 0,
-                updatesTime: shiftDurationMinutes
-            };
-        }
-        if (updates === 0) {
-            return {
-                newSubmissionsTime: shiftDurationMinutes,
-                updatesTime: 0
-            };
-        }
-
-        // Total cases with weight adjustment
-        const weightedNewSubmissions = newSubmissions * customMultiplier;
-        const totalWeightedCases = weightedNewSubmissions + updates;
-
-        // Calculate proportional time
-        const newSubmissionsTime = (shiftDurationMinutes * weightedNewSubmissions) / totalWeightedCases;
-        const updatesTime = (shiftDurationMinutes * updates) / totalWeightedCases;
-
-        return {
-            newSubmissionsTime: Math.round(newSubmissionsTime),
-            updatesTime: Math.round(updatesTime)
-        };
-    }
+        //END OF SHIFT REPORT MODAL
 
     function parseEvents(data) {
         const events = [];
@@ -2781,90 +3065,6 @@ placeholder.replaceWith(customMultiplierContainer);
     
 
 
-    function showShiftDataInputModal(message, callback) {
-        const modal = document.createElement('div');
-        modal.id = 'custom-modal';
-        modal.style.cssText = `
-            position: fixed;
-            top: 20%;
-            left: 50%;
-            transform: translate(-50%, -20%);
-            width: 400px;
-            background: white;
-            border: 2px solid #ccc;
-            border-radius: 10px;
-            padding: 15px;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-            z-index: 10001;
-        `;
-
-        const messageDiv = document.createElement('div');
-        messageDiv.innerHTML = message; // Use innerHTML to render HTML content
-        modal.appendChild(messageDiv);
-
-        const textarea = document.createElement('textarea');
-        textarea.style.cssText = `
-            width: 100%;
-            height: 200px;
-            margin-top: 10px;
-            padding: 10px;
-            border: 1px solid #ccc;
-            border-radius: 5px;
-        `;
-        modal.appendChild(textarea);
-
-        const buttonDiv = document.createElement('div');
-        buttonDiv.style.cssText = `
-            margin-top: 10px;
-            text-align: right;
-        `;
-
-        const submitButton = document.createElement('button');
-        submitButton.innerText = 'Submit';
-        submitButton.style.cssText = `
-            background: #007bff;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            padding: 10px;
-            cursor: pointer;
-        `;
-        submitButton.addEventListener('click', () => {
-            callback(textarea.value);
-            document.body.removeChild(modal);
-        });
-        buttonDiv.appendChild(submitButton);
-
-        const cancelButton = document.createElement('button');
-        cancelButton.innerText = 'Cancel';
-        cancelButton.style.cssText = `
-            background: #f44336;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            padding: 10px;
-            cursor: pointer;
-            margin-left: 10px;
-        `;
-        cancelButton.addEventListener('click', () => {
-            document.body.removeChild(modal);
-        });
-        buttonDiv.appendChild(cancelButton);
-
-        modal.appendChild(buttonDiv);
-        document.body.appendChild(modal);
-    }
-
-    function getDistributionMethod(item) {
-        if (item.distributionMethod === 'Plugins') {
-            return 'CODE_PLUGIN';
-        } else if (item.distributionMethod === 'AssetPack' || item.distributionMethod === 'CompleteProject') {
-            return 'ASSET_PACK';
-        } else {
-            return 'COMPLETE_PROJECT';
-        }
-    }
-
     function getEarliestUEVersion(engineVersion) {
         const versions = engineVersion.split(';').map(v => v.replace('UE_', ''));
         return versions.sort()[0];
@@ -2915,8 +3115,8 @@ placeholder.replaceWith(customMultiplierContainer);
         const listingSpan = Array.from(spans).find((span) => span.textContent.trim() === 'Listing Content');
     
         if (!listingSpan) {
-            console.error("Could not find the 'Listing Content' section.");
-            alert("Could not find the 'Listing Content' section.");
+            console.error("Could not find the 'Listing Content' section, you must be in a New Submission or Update case to use this.");
+            alert("Could not find the 'Listing Content' section, you must be in a New Submission or Update case to use this.");
             return data;
         }
     
