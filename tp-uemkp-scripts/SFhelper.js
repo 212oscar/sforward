@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Salesforce Helper for ModSquad UE MKTP
 // @namespace    http://tampermonkey.net/
-// @version      2.9
+// @version      2.9.1
 // @description  Process selected info, copy App Name, copy SF Case, and manage cases with floating buttons.
 // @author       Oscar O.
 // @match        https://epicgames.lightning.force.com/lightning/*
@@ -11,7 +11,7 @@
 // @connect      fab-admin.daec.live.use1a.on.epicgames.com
 // @downloadURL  https://raw.githubusercontent.com/212oscar/sforward/main/tp-uemkp-scripts/SFhelper.js
 // @updateURL    https://raw.githubusercontent.com/212oscar/sforward/main/tp-uemkp-scripts/SFhelper.js
-// @history      2.9  Added a "Close" button to change the case status. Improved the Shift Report, now Support case types are allowed, now you only need to paste the URL of the Google Sheets or Google Drive Folder. Deleted some unused code .
+// @history      2.9.1  Added a Close button to change the case status. Improved the Shift Report, now Support case types are allowed, now you only need to paste the URL of the Google Sheets or Google Drive Folder. Deleted some unused code .
 // @history      2.8.4 Now you can create TRCs on your name! (previously my name was there as the creator) Just login with google the first time and that's it.
 // @history      2.8.3 Fixed an issue where a Please wait windows randomly appeared in Salesforce, the Fab Preview now also is showing for unity submissions.
 // @history      2.8.2 Added the Fab Preview Link!!!, now you can get the FAB preview in the Get info button.
@@ -868,8 +868,8 @@ function initializeUI() {
 
     // Create sections for buttons
     const section1 = createSection('section1', '100px');
-    const section2 = createSection('section2', '350px');
-    const section3 = createSection('section3', '600px');
+    const section2 = createSection('section2', '330px');
+    const section3 = createSection('section3', '580px');
 
     // Store original positions
     section1.dataset.originalTop = section1.style.top;
@@ -1005,6 +1005,20 @@ function initializeUI() {
         trcTemplateMenu.style.display = 'none';
     });
     section1.appendChild(createTRCButton);
+
+    // Create a small centered text in yellow
+const caseStatusText = document.createElement('div');
+caseStatusText.innerText = 'Change Case Status:';
+caseStatusText.style.cssText = `
+    text-align: center;
+    color: black;
+    font-size: 11px;
+    margin-bottom: 4px;
+    margin-top: -4px;
+`;
+
+// Append the text to the top of section2
+section2.appendChild(caseStatusText);
 
     // Create the "Approve" button (Light Green)
     const approveButton = createButton('Approve', '#11ed11', () => {
