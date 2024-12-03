@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         SFhelper
 // @namespace    http://tampermonkey.net/
-// @version      2.9.2
+// @version      2.9.3
 // @description  Designed to assist mods (T1 & T2) in the workflow.
 // @author       Oscar O.
 // @match        https://epicgames.lightning.force.com/lightning/*
@@ -11,7 +11,7 @@
 // @connect      fab-admin.daec.live.use1a.on.epicgames.com
 // @downloadURL  https://raw.githubusercontent.com/212oscar/sforward/main/tp-uemkp-scripts/SFhelper.js
 // @updateURL    https://raw.githubusercontent.com/212oscar/sforward/main/tp-uemkp-scripts/SFhelper.js
-// @history      2.9.2 Added midnight PST shift splitter, separated shift if is cross-midnight PST send shift report for each part of the split shift and reminder to send the shift report, minor visual improvements.
+// @history      2.9.3 Added midnight PST shift splitter, separated shift if is cross-midnight PST send shift report for each part of the split shift and reminder to send the shift report, some visual improvements.
 // @history      2.9.1 Added a Close button to change the case status. Improved the Shift Report, now Support case types are allowed, now you only need to paste the URL of the Google Sheets or Google Drive Folder. Deleted some unused code .
 // @history      2.8.4 Now you can create TRCs on your name! (previously my name was there as the creator) Just login with google the first time and that's it.
 // @history      2.8.3 Fixed an issue where a Please wait windows randomly appeared in Salesforce, the Fab Preview now also is showing for unity submissions.
@@ -2650,6 +2650,25 @@ if (relevantShift) {
             padding: 2px; /* Adjust padding */
         `;
         shiftSection.appendChild(updateShiftsButton);
+
+        // // Create the "Manual Add" button (Purple) - FOR TESTING ONLY
+        //     const manualAddButton = createButton('Manual Add', '#6f42c1', () => {
+        //         showModal('Please paste your shift data from iCal:', (tandaData) => {
+        //             if (tandaData) {
+        //                 const parsedEvents = parseEvents(tandaData);
+        //                 localStorage.setItem('parsedTandaScheduleData', JSON.stringify(parsedEvents));
+        //                 location.reload(); // Reload the page to update the shift info
+        //             }
+        //         });
+        //     });
+        //     manualAddButton.style.cssText += `
+        //         position: absolute;
+        //         top: 40px;  /* Position it below the Update Shifts button */
+        //         right: 10px;
+        //         width: 100px;
+        //         padding: 2px;
+        //     `;
+        //     shiftSection.appendChild(manualAddButton);
     
         function renderShifts() {
             const shiftsToRender = currentAndNextShifts.slice(0, currentIndex + displayedShifts);
@@ -2686,25 +2705,51 @@ if (relevantShift) {
             <tbody>
                 ${shifts.map((shift, index) => {
                     const isHighlighted = index === currentShiftIndex || (currentShiftIndex === -1 && index === nextShiftIndex);
-                    return formatShiftRow(shift, isHighlighted);
+                    return formatShiftRow(shift, isHighlighted, shifts, index);
                 }).join('')}
             </tbody>
         `;
         return table.outerHTML;
     }
 
-    function formatShiftRow(shift, isHighlighted) {
+    function formatShiftRow(shift, isHighlighted, shifts, currentIndex) {
         const borderStyle = isHighlighted ? 'border: 2px solid yellow !important;' : 'border: 1px solid #ccc;';
         const rowHeight = '50px';
     
-        // Check if this is a current or next shift
+        // Check if this is part of a split shift by looking at adjacent shifts
+        const nextShift = shifts[currentIndex + 1];
+        const prevShift = shifts[currentIndex - 1];
+        
+        const isPartOfSplitShift = (nextShift && 
+            new Date(shift.end).getTime() === new Date(nextShift.start).getTime() && 
+            shift.summary === nextShift.summary) || 
+            (prevShift && 
+            new Date(shift.start).getTime() === new Date(prevShift.end).getTime() && 
+            shift.summary === prevShift.summary);
+    
+        const isFirstPart = nextShift && 
+            new Date(shift.end).getTime() === new Date(nextShift.start).getTime() && 
+            shift.summary === nextShift.summary;
+    
+        const isSecondPart = prevShift && 
+            new Date(shift.start).getTime() === new Date(prevShift.end).getTime() && 
+            shift.summary === prevShift.summary;
+    
+        // Split shift styling
+        const splitShiftStyle = isPartOfSplitShift ? `
+            ${isFirstPart ? 'border-bottom: 2px dashed #007bff !important;' : ''}
+            ${isSecondPart ? 'border-top: 2px dashed #007bff !important;' : ''}
+            background: ${isFirstPart ? 'linear-gradient(to bottom, white 90%, #f0f8ff)' : 
+                         isSecondPart ? 'linear-gradient(to top, white 90%, #f0f8ff)' : 'white'};
+        ` : '';
+    
+        // Check if current or next shift for label
         const now = new Date();
         const start = new Date(shift.start);
         const end = new Date(shift.end);
         const isCurrent = start <= now && end >= now;
         const isNext = start > now;
         
-        // Create label if this is a highlighted row
         const labelHtml = isHighlighted ? `
             <div style="
                 position: absolute;
@@ -2722,11 +2767,26 @@ if (relevantShift) {
             </div>
         ` : '';
     
-        // Times are already in PST
+        // Add split shift indicator if applicable
+        const splitShiftLabel = isPartOfSplitShift ? `
+            <div style="
+                position: absolute;
+                top: ${isFirstPart ? 'auto' : '0'};
+                bottom: ${isFirstPart ? '0' : 'auto'};
+                right: 10px;
+                color: #007bff;
+                font-size: 11px;
+                font-weight: bold;
+            ">
+                ${isFirstPart ? 'Part 1' : 'Part 2'}
+            </div>
+        ` : '';
+    
+        // Rest of the date formatting code remains the same
         const startPST = new Date(shift.start);
         const endPST = new Date(shift.end);
     
-        // Format PST times without timezone conversion since they're already in PST
+        // Format PST times
         const startTimePST = startPST.toLocaleTimeString('en-US', { 
             hour: '2-digit', 
             minute: '2-digit',
@@ -2761,10 +2821,11 @@ if (relevantShift) {
         const endDateLocal = endLocal.toLocaleDateString('en-US');
     
         return `
-            <tr style="${borderStyle} height: ${rowHeight}; position: relative;">
+            <tr style="${borderStyle} height: ${rowHeight}; position: relative; ${splitShiftStyle}">
                 <td style="padding: 8px; border: 1px solid #ccc; max-width: 200px; word-wrap: break-word; white-space: normal; position: relative;">
                     ${labelHtml}
                     ${shift.summary || 'No summary'}
+                    ${splitShiftLabel}
                 </td>
                 <td style="padding: 8px; border: 1px solid #ccc; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
                     <div><strong>PST:</strong> ${startTimePST}</div>
