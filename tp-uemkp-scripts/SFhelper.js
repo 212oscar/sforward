@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         Salesforce Helper for ModSquad UE MKTP
+// @name         SFhelper
 // @namespace    http://tampermonkey.net/
-// @version      2.9.1
-// @description  Process selected info, copy App Name, copy SF Case, and manage cases with floating buttons.
+// @version      2.9.2
+// @description  Designed to assist mods (T1 & T2) in the workflow.
 // @author       Oscar O.
 // @match        https://epicgames.lightning.force.com/lightning/*
 // @match        https://my.tanda.co/staff*
@@ -11,7 +11,8 @@
 // @connect      fab-admin.daec.live.use1a.on.epicgames.com
 // @downloadURL  https://raw.githubusercontent.com/212oscar/sforward/main/tp-uemkp-scripts/SFhelper.js
 // @updateURL    https://raw.githubusercontent.com/212oscar/sforward/main/tp-uemkp-scripts/SFhelper.js
-// @history      2.9.1  Added a Close button to change the case status. Improved the Shift Report, now Support case types are allowed, now you only need to paste the URL of the Google Sheets or Google Drive Folder. Deleted some unused code .
+// @history      2.9.2 Added midnight PST shift splitter, separated shift if is cross-midnight PST send shift report for each part of the split shift and reminder to send the shift report, minor visual improvements.
+// @history      2.9.1 Added a Close button to change the case status. Improved the Shift Report, now Support case types are allowed, now you only need to paste the URL of the Google Sheets or Google Drive Folder. Deleted some unused code .
 // @history      2.8.4 Now you can create TRCs on your name! (previously my name was there as the creator) Just login with google the first time and that's it.
 // @history      2.8.3 Fixed an issue where a Please wait windows randomly appeared in Salesforce, the Fab Preview now also is showing for unity submissions.
 // @history      2.8.2 Added the Fab Preview Link!!!, now you can get the FAB preview in the Get info button.
@@ -36,7 +37,7 @@
             position: fixed;
             top: 50%;
             left: 50%;
-            max-width: 300px;
+            max-width: 400px;
             transform: translate(-50%, -50%);
             background: white;
             padding: 20px;
@@ -46,7 +47,7 @@
         `;
 
         const messageDiv = document.createElement('div');
-        messageDiv.innerText = 'The Tanda page will be opened so we can retrieve your current shifts. You need to be logged in already with Modsquad OKTA. If you are ready, click OK.';
+        messageDiv.innerText = 'The Tanda page will be opened so we can retrieve your current shifts. You need to be logged in already with Modsquad OKTA, before clicking "ok" please go to OKTA and enter in Workforce page to ensure you are logged in, If you are ready, click OK.';
         modal.appendChild(messageDiv);
 
         const buttonContainer = document.createElement('div');
@@ -1250,44 +1251,81 @@ if (relevantShift) {
 
     function setShiftReminders() {
         clearShiftReminders(); // Clear any existing reminders
-
+    
         const tandaData = localStorage.getItem('parsedTandaScheduleData');
         if (!tandaData) return;
-
+    
         const shifts = JSON.parse(tandaData);
         const groupedShifts = groupShifts(shifts); // Group the shifts
-
+    
         const now = new Date();
-
-        // Filter out past grouped shifts and sort by start time
-        const futureGroupedShifts = groupedShifts.filter(shift => new Date(shift.end) > now).sort((a, b) => new Date(a.start) - new Date(b.start));
-
-        if (futureGroupedShifts.length === 0) return;
-
-        // Set reminders for the next upcoming grouped shift
-        const nextGroupedShift = futureGroupedShifts[0];
-        const start = new Date(nextGroupedShift.start);
-        const end = new Date(nextGroupedShift.end);
-
-        // Reminder to clock in 2 minutes before the shift starts
-        const clockInReminderTime = new Date(start.getTime() - 2 * 60 * 1000);
-        if (clockInReminderTime > now) {
-            const clockInTimeout = clockInReminderTime - now;
-            const clockInTimerId = setTimeout(() => {
-                showReminderModal('Your shift is starting, remember to:\n\n- Clock-in on Workforce app\n- Clock-in on Modsquad and Epic Games Slack', start, end);
-            }, clockInTimeout);
-            reminderTimers.push(clockInTimerId);
-        }
-
-        // Reminder to clock out 2 minutes before the shift ends
-        const clockOutReminderTime = new Date(end.getTime() - 2 * 60 * 1000);
-        if (clockOutReminderTime > now) {
-            const clockOutTimeout = clockOutReminderTime - now;
-            const clockOutTimerId = setTimeout(() => {
-                showReminderModal('Your shift is ending, remember to:\n\n- Clock-out on Workforce app\n- Clock-out on Modsquad Slack\n- Send your shift report', start, end);
-            }, clockOutTimeout);
-            reminderTimers.push(clockOutTimerId);
-        }
+        const minimumDelay = 60 * 1000; // 1 minute minimum delay
+    
+        // Find active shift or next upcoming shift
+        const relevantShifts = groupedShifts
+            .filter(shift => {
+                const shiftStart = new Date(shift.start);
+                const shiftEnd = new Date(shift.end);
+                // Include shift if it's active or it's the next upcoming shift
+                return (shiftStart <= now && shiftEnd > now) || shiftStart > now;
+            })
+            .sort((a, b) => new Date(a.start) - new Date(b.start));
+    
+        if (relevantShifts.length === 0) return;
+    
+        // Only process the active shift (if any) and the next shift
+        const shiftsToProcess = relevantShifts.slice(0, 2);
+    
+        shiftsToProcess.forEach((shift, index) => {
+            const start = new Date(shift.start);
+            const end = new Date(shift.end);
+            const nextShift = shiftsToProcess[index + 1];
+            
+            const isActiveShift = start <= now && end > now;
+            
+            // Determine if this is part 1 of a split shift
+            const isSplitShiftPart1 = nextShift && 
+                end.getTime() === new Date(nextShift.start).getTime() &&
+                shift.summary === nextShift.summary;
+    
+            // Calculate reminder times (2 minutes before)
+            const clockInReminderTime = new Date(start.getTime() - 2 * 60 * 1000);
+            const clockOutReminderTime = new Date(end.getTime() - 2 * 60 * 1000);
+    
+            // Calculate timeouts
+            const clockInTimeout = clockInReminderTime.getTime() - now.getTime();
+            const clockOutTimeout = clockOutReminderTime.getTime() - now.getTime();
+    
+            // Set clock-in reminder only for the next future shift if it's first part or non-split
+            if (!isActiveShift && clockInTimeout > minimumDelay && (!isSplitShiftPart1 || index === 0)) {
+                const clockInTimerId = setTimeout(() => {
+                    showReminderModal(
+                        'Your shift is starting, remember to:\n\n- Clock-in on Workforce app\n- Clock-in on Modsquad and Epic Games Slack',
+                        start,
+                        end
+                    );
+                }, clockInTimeout);
+                reminderTimers.push(clockInTimerId);
+            }
+    
+            // Set clock-out reminder if the end time is in the future
+            if (clockOutTimeout > minimumDelay) {
+                const clockOutTimerId = setTimeout(() => {
+                    let message;
+                    if (isSplitShiftPart1) {
+                        message = 'First part of your shift is ending.\n\n' +
+                                 'Please submit your shift report for this part and continue with the next part of your shift.';
+                    } else {
+                        message = 'Your shift is ending, remember to:\n\n' +
+                                 '- Clock-out on Workforce app\n' +
+                                 '- Clock-out on Modsquad Slack\n' +
+                                 '- Send your shift report';
+                    }
+                    showReminderModal(message, start, end);
+                }, clockOutTimeout);
+                reminderTimers.push(clockOutTimerId);
+            }
+        });
     }
 
     function clearShiftReminders() {
@@ -1310,18 +1348,21 @@ if (relevantShift) {
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
             z-index: 10001;
         `;
-
+    
+        // Format times in both PST and local time
         const startPST = new Date(start).toLocaleString('en-US', { timeZone: 'America/Los_Angeles' });
         const endPST = new Date(end).toLocaleString('en-US', { timeZone: 'America/Los_Angeles' });
-
+        const startLocal = new Date(start).toLocaleString();
+        const endLocal = new Date(end).toLocaleString();
+    
         const messageDiv = document.createElement('div');
         messageDiv.innerHTML = `
             <p>${message}</p>
-            <p><strong>Start (PST):</strong> ${startPST}</p>
-            <p><strong>End (PST):</strong> ${endPST}</p>
+            <p><strong>Time (PST):</strong> ${startPST} - ${endPST}</p>
+            <p><strong>Time (Local):</strong> ${startLocal} - ${endLocal}</p>
         `;
         modal.appendChild(messageDiv);
-
+    
         const allDoneButton = document.createElement('button');
         allDoneButton.innerText = 'All Done';
         allDoneButton.style.cssText = `
@@ -1336,7 +1377,7 @@ if (relevantShift) {
         allDoneButton.addEventListener('click', () => {
             modal.remove();
         });
-
+    
         modal.appendChild(allDoneButton);
         document.body.appendChild(modal);
     }
@@ -2414,35 +2455,80 @@ if (relevantShift) {
 
     function groupShifts(shifts) {
         if (shifts.length === 0) return [];
-
+        
         // Sort shifts by start time
         shifts.sort((a, b) => new Date(a.start) - new Date(b.start));
-
+    
         const groupedShifts = [];
         let currentShift = { ...shifts[0] };
-
+    
         for (let i = 1; i < shifts.length; i++) {
             const shift = shifts[i];
             const currentEnd = new Date(currentShift.end);
             const nextStart = new Date(shift.start);
-
-            // Check if the current shift and the next shift are back-to-back and have the same summary
+    
+            // Check if shifts are back-to-back and have the same summary
             if (currentEnd.getTime() === nextStart.getTime() && currentShift.summary === shift.summary) {
                 // Extend the current shift's end time and update the duration
                 currentShift.end = shift.end;
                 const durationHours = (new Date(currentShift.end) - new Date(currentShift.start)) / (1000 * 60 * 60);
                 currentShift.duration = `${durationHours} hours`;
             } else {
-                // Push the current shift to the grouped shifts and start a new current shift
                 groupedShifts.push(currentShift);
                 currentShift = { ...shift };
             }
         }
-
+    
         // Push the last shift
         groupedShifts.push(currentShift);
-
-        return groupedShifts;
+    
+        // Split shifts that cross PST midnight
+        const splitShifts = [];
+        for (const shift of groupedShifts) {
+            // Create Date objects in PST
+            const startUTC = new Date(shift.start);
+            const endUTC = new Date(shift.end);
+    
+            // Convert to PST using explicit offset
+            // PST is UTC-8 (standard time)
+            const pstOffset = -8 * 60 * 60 * 1000; // -8 hours in milliseconds
+            const startPST = new Date(startUTC.getTime() + startUTC.getTimezoneOffset() * 60 * 1000 + pstOffset);
+            const endPST = new Date(endUTC.getTime() + endUTC.getTimezoneOffset() * 60 * 1000 + pstOffset);
+    
+            // Calculate PST midnight
+            const midnightPST = new Date(startPST);
+            midnightPST.setHours(24, 0, 0, 0);
+    
+            // Convert midnight PST back to local time for comparison
+            const midnightLocal = new Date(midnightPST.getTime() - pstOffset - startUTC.getTimezoneOffset() * 60 * 1000);
+    
+            // Check if shift crosses PST midnight AND doesn't end exactly at midnight
+            if (startPST.getDate() !== endPST.getDate() && 
+                !(endPST.getHours() === 0 && endPST.getMinutes() === 0)) {
+                
+                // Split the shift at PST midnight
+                splitShifts.push({
+                    ...shift,
+                    end: midnightLocal.toISOString(),
+                    duration: `${(midnightLocal - startUTC) / (1000 * 60 * 60)} hours`
+                });
+    
+                // Only create second shift if there's actual duration after midnight
+                const remainingDuration = (endUTC - midnightLocal) / (1000 * 60 * 60);
+                if (remainingDuration > 0) {
+                    splitShifts.push({
+                        ...shift,
+                        start: midnightLocal.toISOString(),
+                        duration: `${remainingDuration} hours`
+                    });
+                }
+            } else {
+                // No split needed
+                splitShifts.push(shift);
+            }
+        }
+    
+        return splitShifts;
     }
 
     let displayedShifts = 4; // Number of shifts to display in the shift table
@@ -2461,7 +2547,7 @@ if (relevantShift) {
     
        
         const currentAndNextShifts = getCurrentAndNextShifts(groupedShifts, displayedShifts);
-        console.log('Current / Next Shifts in local time:', currentAndNextShifts); // Debugging log
+        console.log('Current / Next Shifts:', currentAndNextShifts); // Debugging log
     
         const now = new Date();
         const currentShiftIndex = currentAndNextShifts.findIndex(shift => new Date(shift.start) <= now && new Date(shift.end) >= now);
@@ -2569,7 +2655,7 @@ if (relevantShift) {
             const shiftsToRender = currentAndNextShifts.slice(0, currentIndex + displayedShifts);
             console.log('Rendered Shifts:', shiftsToRender); // Debugging log
             shiftInfo.innerHTML = `
-                <strong>Current / Next Shifts in local time | <a href="https://calendar.google.com/calendar/u/0/r?pli=1" target="_blank">Google Calendar</a></strong><br>
+                <strong>Current / Next Shifts  | <a href="https://calendar.google.com/calendar/u/0/r?pli=1" target="_blank">Google Calendar</a> <br> Remember that the most updated source of your shifts is <br>the Workforce official App</strong><br>
                 ${shiftsToRender.length > 0 ? formatShiftsTable(shiftsToRender, currentShiftIndex, nextShiftIndex) : 'No upcoming shifts'}
             `;
     
@@ -2609,34 +2695,105 @@ if (relevantShift) {
 
     function formatShiftRow(shift, isHighlighted) {
         const borderStyle = isHighlighted ? 'border: 2px solid yellow !important;' : 'border: 1px solid #ccc;';
-        const rowHeight = '50px'; // Set a fixed height for the rows
+        const rowHeight = '50px';
     
-        const startTime = new Date(shift.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        const startDate = new Date(shift.start).toLocaleDateString();
-        const endTime = new Date(shift.end).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        const endDate = new Date(shift.end).toLocaleDateString();
+        // Check if this is a current or next shift
+        const now = new Date();
+        const start = new Date(shift.start);
+        const end = new Date(shift.end);
+        const isCurrent = start <= now && end >= now;
+        const isNext = start > now;
+        
+        // Create label if this is a highlighted row
+        const labelHtml = isHighlighted ? `
+            <div style="
+                position: absolute;
+                top: -10px;
+                left: 10px;
+                background-color: #FFA500;
+                color: black;
+                padding: 2px 8px;
+                border-radius: 10px;
+                font-size: 12px;
+                font-weight: bold;
+                z-index: 1;
+            ">
+                ${isCurrent ? 'Current' : 'Next'}
+            </div>
+        ` : '';
+    
+        // Times are already in PST
+        const startPST = new Date(shift.start);
+        const endPST = new Date(shift.end);
+    
+        // Format PST times without timezone conversion since they're already in PST
+        const startTimePST = startPST.toLocaleTimeString('en-US', { 
+            hour: '2-digit', 
+            minute: '2-digit',
+            timeZone: 'America/Los_Angeles'
+        });
+        const startDatePST = startPST.toLocaleDateString('en-US', {
+            timeZone: 'America/Los_Angeles'
+        });
+        const endTimePST = endPST.toLocaleTimeString('en-US', { 
+            hour: '2-digit', 
+            minute: '2-digit',
+            timeZone: 'America/Los_Angeles'
+        });
+        const endDatePST = endPST.toLocaleDateString('en-US', {
+            timeZone: 'America/Los_Angeles'
+        });
+    
+        // Convert to local time
+        const startLocal = new Date(startPST);
+        const endLocal = new Date(endPST);
+    
+        // Format local times
+        const startTimeLocal = startLocal.toLocaleTimeString('en-US', { 
+            hour: '2-digit', 
+            minute: '2-digit'
+        });
+        const startDateLocal = startLocal.toLocaleDateString('en-US');
+        const endTimeLocal = endLocal.toLocaleTimeString('en-US', { 
+            hour: '2-digit', 
+            minute: '2-digit'
+        });
+        const endDateLocal = endLocal.toLocaleDateString('en-US');
     
         return `
-            <tr style="${borderStyle} height: ${rowHeight};">
-                <td style="padding: 8px; border: 1px solid #ccc; max-width: 200px; word-wrap: break-word; white-space: normal;">${shift.summary || 'No summary'}</td>
-                <td style="padding: 8px; border: 1px solid #ccc; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                    ${startTime}<br>
-                    <span style="font-size: 12px;">${startDate}</span>
+            <tr style="${borderStyle} height: ${rowHeight}; position: relative;">
+                <td style="padding: 8px; border: 1px solid #ccc; max-width: 200px; word-wrap: break-word; white-space: normal; position: relative;">
+                    ${labelHtml}
+                    ${shift.summary || 'No summary'}
                 </td>
                 <td style="padding: 8px; border: 1px solid #ccc; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                    ${endTime}<br>
-                    <span style="font-size: 12px;">${endDate}</span>
+                    <div><strong>PST:</strong> ${startTimePST}</div>
+                    <div style="font-size: 12px;">${startDatePST}</div>
+                    <div style="margin-top: 4px;"><strong>Local:</strong> ${startTimeLocal}</div>
+                    <div style="font-size: 12px;">${startDateLocal}</div>
                 </td>
-                <td style="padding: 8px; border: 1px solid #ccc; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${shift.duration}</td>
                 <td style="padding: 8px; border: 1px solid #ccc; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                    <button class="shift-report-button" data-start="${shift.start}" data-end="${shift.end}" data-duration="${shift.duration}" style="
-                        background: #007bff;
-                        color: white;
-                        border: none;
-                        border-radius: 5px;
-                        padding: 5px 10px;
-                        cursor: pointer;
-                    ">Shift Report</button>
+                    <div><strong>PST:</strong> ${endTimePST}</div>
+                    <div style="font-size: 12px;">${endDatePST}</div>
+                    <div style="margin-top: 4px;"><strong>Local:</strong> ${endTimeLocal}</div>
+                    <div style="font-size: 12px;">${endDateLocal}</div>
+                </td>
+                <td style="padding: 8px; border: 1px solid #ccc; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                    ${shift.duration}
+                </td>
+                <td style="padding: 8px; border: 1px solid #ccc; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                    <button class="shift-report-button" 
+                            data-start="${shift.start}" 
+                            data-end="${shift.end}" 
+                            data-duration="${shift.duration}" 
+                            style="
+                                background: #007bff;
+                                color: white;
+                                border: none;
+                                border-radius: 5px;
+                                padding: 5px 10px;
+                                cursor: pointer;
+                            ">Shift Report</button>
                 </td>
             </tr>
         `;
