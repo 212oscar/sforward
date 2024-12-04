@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         SFhelper
 // @namespace    http://tampermonkey.net/
-// @version      2.9.3
+// @version      2.9.4
 // @description  Designed to assist mods (T1 & T2) in the workflow.
 // @author       Oscar O.
 // @match        https://epicgames.lightning.force.com/lightning/*
@@ -11,6 +11,7 @@
 // @connect      fab-admin.daec.live.use1a.on.epicgames.com
 // @downloadURL  https://raw.githubusercontent.com/212oscar/sforward/main/tp-uemkp-scripts/SFhelper.js
 // @updateURL    https://raw.githubusercontent.com/212oscar/sforward/main/tp-uemkp-scripts/SFhelper.js
+// @history      2.9.4 Fixed a bug where when working with multiples SF tabs, changing the case status will change the status of another tab and not the visible one (Thanks to Christian E. for reporting this issue), Added a confirmation message when clicking the "Decline" button.
 // @history      2.9.3 Added midnight PST shift splitter, separated shift if is cross-midnight PST send shift report for each part of the split shift and reminder to send the shift report, some visual improvements.
 // @history      2.9.1 Added a Close button to change the case status. Improved the Shift Report, now Support case types are allowed, now you only need to paste the URL of the Google Sheets or Google Drive Folder. Deleted some unused code .
 // @history      2.8.4 Now you can create TRCs on your name! (previously my name was there as the creator) Just login with google the first time and that's it.
@@ -2321,22 +2322,63 @@ if (relevantShift) {
     function changeStatus(buttonId) {
         console.log('Starting approval process...');
     
-        // Step 1: Locate and Click the Edit Button
-        const editButtons = getAllShadowElements(document.body, 'button[title="Edit Status"]');
-        const editButton = editButtons[0]; // Assuming the first found "Edit Status" button is correct
+        // First, get the current case number and locate the correct section
+        const caseNumber = getCaseNumber();
+        if (!caseNumber) {
+            console.error('Case number not found');
+            return;
+        }
+    
+        // Find the aria-controls value associated with the active tab
+        const tabElement = document.querySelector(`a[title^="${caseNumber}"]`);
+        if (!tabElement) {
+            console.error('Tab element not found');
+            return;
+        }
+    
+        const ariaControls = tabElement.getAttribute('aria-controls');
+        if (!ariaControls) {
+            console.error('aria-controls attribute not found');
+            return;
+        }
+    
+        // Locate the section element with the corresponding ID
+        const sectionElement = document.getElementById(ariaControls);
+        if (!sectionElement) {
+            console.error('Section element not found');
+            return;
+        }
+    
+        // For decline button, get product title and show confirmation
+        if (buttonId === 'decline-button') {
+            const productTitleElement = sectionElement.querySelector('lightning-formatted-text[title]');
+            if (!productTitleElement) {
+                console.error('Product Title element not found.');
+                return;
+            }
+            const productTitle = productTitleElement.getAttribute('title');
+            
+            if (!confirm(`Are you sure you want to Decline this product?\n\nProduct: ${productTitle}\nCase Number: ${caseNumber}`)) {
+                return; // If user clicks Cancel, stop the function
+            }
+        }
+    
+        // Rest of the function remains the same...
+        const editButtons = getAllShadowElements(sectionElement, 'button[title="Edit Status"]');
+        const editButton = editButtons[0];
+        
         if (editButton) {
             editButton.click();
     
             setTimeout(() => {
-                // Step 2: Locate and Expand the Dropdown
-                const dropdownButtons = getAllShadowElements(document.body, 'button[aria-label="Status"]');
+                const dropdownButtons = getAllShadowElements(sectionElement, 'button[aria-label="Status"]');
                 const dropdownButton = dropdownButtons[0];
+                
                 if (dropdownButton) {
                     dropdownButton.click();
     
                     setTimeout(() => {
-                        // Step 3: Select the new status according to the clicked button
-                        const dropdownItems = getAllShadowElements(document.body, 'lightning-base-combobox-item');
+                        const dropdownItems = getAllShadowElements(sectionElement, 'lightning-base-combobox-item');
                         let approvalOption;
     
                         if (buttonId === 'approve-button') {
@@ -2361,8 +2403,7 @@ if (relevantShift) {
                             approvalOption.click();
     
                             setTimeout(() => {
-                                // Step 4: Locate and Click the Save Button
-                                const saveButtons = getAllShadowElements(document.body, 'button[name="SaveEdit"]');
+                                const saveButtons = getAllShadowElements(sectionElement, 'button[name="SaveEdit"]');
                                 const saveButton = saveButtons[0];
                                 if (saveButton) {
                                     saveButton.click();
@@ -2370,15 +2411,15 @@ if (relevantShift) {
                                 } else {
                                     console.error('Save button not found.');
                                 }
-                            }, 500); // Adjust delay if needed
+                            }, 500);
                         } else {
                             console.error('Approval option not found.');
                         }
-                    }, 500); // Adjust delay if needed
+                    }, 500);
                 } else {
                     console.error('Dropdown button not found.');
                 }
-            }, 1000); // Adjust delay if needed
+            }, 1000);
         } else {
             console.error('Edit button not found.');
         }
