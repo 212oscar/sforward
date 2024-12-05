@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         SFhelper
 // @namespace    http://tampermonkey.net/
-// @version      2.9.5
+// @version      2.9.6
 // @description  Designed to assist mods (T1 & T2) in the workflow.
 // @author       Oscar O.
 // @match        https://epicgames.lightning.force.com/lightning/*
@@ -9,8 +9,9 @@
 // @match        https://horde.devtools.epicgames.com/stream/ue5-marketplace?tab=General
 // @grant        GM_xmlhttpRequest
 // @connect      fab-admin.daec.live.use1a.on.epicgames.com
-// @downloadURL  https://raw.githubusercontent.com/212oscar/sforward/main/tp-uemkp-scripts/SFhelper.js
-// @updateURL    https://raw.githubusercontent.com/212oscar/sforward/main/tp-uemkp-scripts/SFhelper.js
+// @downloadURL  https://raw.githubusercontent.com/212oscar/sforward/main/tp-uemkp-scripts/SFhelper.user.js
+// @updateURL    https://raw.githubusercontent.com/212oscar/sforward/main/tp-uemkp-scripts/SFhelper.user.js
+// @history      2.9.6 New download/update link for easier installation the first time.
 // @history      2.9.5 Fixed some bugs where the Horde button was not creating jobs due to horde being slow, still can fail but now is less probably!
 // @history      2.9.4 Fixed a bug where when working with multiples SF tabs, changing the case status will change the status of another tab and not the visible one (Thanks to Christian E. for reporting this issue), Added a confirmation message when clicking the "Decline" button.
 // @history      2.9.3 Added midnight PST shift splitter, separated shift if is cross-midnight PST send shift report for each part of the split shift and reminder to send the shift report, some visual improvements.
