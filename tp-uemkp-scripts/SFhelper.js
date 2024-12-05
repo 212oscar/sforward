@@ -2230,8 +2230,8 @@ if (relevantShift) {
         // Extract the rows from the table
         const rows = listingSection.querySelectorAll('table tr');
         if (rows.length === 0) {
-            console.error("No rows found in the 'Listing Content' section.");
-            alert("No rows found in the 'Listing Content' section.");
+            console.error("No rows found in the 'Listing Content' section, check if is a Unity Product.");
+            alert("No rows found in the 'Listing Content' section, check if is a Unity Product.");
             return [];
         }
 
