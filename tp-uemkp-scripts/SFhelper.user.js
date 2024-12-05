@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         SFhelper
 // @namespace    http://tampermonkey.net/
-// @version      2.9.6
-// @description  Designed to assist mods (T1 & T2) in the workflow.
+// @version      2.9.7
+// @description  Designed to assist mods (T1 & T2) in the workflow and shift reports.
 // @author       Oscar O.
 // @match        https://epicgames.lightning.force.com/lightning/*
 // @match        https://my.tanda.co/staff*
@@ -11,6 +11,7 @@
 // @connect      fab-admin.daec.live.use1a.on.epicgames.com
 // @downloadURL  https://raw.githubusercontent.com/212oscar/sforward/main/tp-uemkp-scripts/SFhelper.user.js
 // @updateURL    https://raw.githubusercontent.com/212oscar/sforward/main/tp-uemkp-scripts/SFhelper.user.js
+// @history      2.9.7 Added user side validation (countdown) before creating the job automatically in Horde, also added internal validation to avoid creating jobs with empty fields, updated Documentation (more user friendly)
 // @history      2.9.6 New download/update link for easier installation the first time.
 // @history      2.9.5 Fixed some bugs where the Horde button was not creating jobs due to horde being slow, still can fail but now is less probably!
 // @history      2.9.4 Fixed a bug where when working with multiples SF tabs, changing the case status will change the status of another tab and not the visible one (Thanks to Christian E. for reporting this issue), Added a confirmation message when clicking the "Decline" button.
@@ -30,7 +31,7 @@
     'use strict';
 
     const SALESFORCE_URL = 'https://epicgames.lightning.force.com';
-    const TANDA_URL = 'https://my.tanda.co/staff?getdata=true';
+    const TANDA_URL = 'https://my.tanda.co/staff';
 
     // Function to show a modal when adding Shifts from tanda page
     function showTandaModal() {
@@ -128,6 +129,56 @@
 
 
     function fillHordeForm(data) {
+
+        // Validate if fields were filled to avoid sending an empty form
+
+        function validateFields(item) {
+            const appNameInput = Array.from(document.querySelectorAll('label'))
+                .find(label => {
+                    const text = label.textContent;
+                    return item.distributionMethod === 'CODE_PLUGIN' ? 
+                        text.includes('Plugin Items') : 
+                        text.includes('AssetPack/CompleteProject Items');
+                })
+                ?.nextElementSibling?.querySelector('input');
+    
+            const versionInput = Array.from(document.querySelectorAll('label'))
+                .find(label => {
+                    const text = label.textContent;
+                    return item.distributionMethod === 'CODE_PLUGIN' ? 
+                        text.includes('Custom Engine Version') : 
+                        text.includes('AssetPack/CompleteProject Versions');
+                })
+                ?.nextElementSibling?.querySelector('input');
+    
+            // Check if inputs exist and have values
+            if (!appNameInput?.value) {
+                console.error('App name field not filled');
+                return false;
+            }
+            if (!versionInput?.value) {
+                console.error('Version field not filled');
+                return false;
+            }
+    
+            // Verify values match what we tried to set
+            if (appNameInput.value !== item.appName) {
+                console.error(`App name mismatch. Expected: ${item.appName}, Got: ${appNameInput.value}`);
+                return false;
+            }
+            
+            const expectedVersion = item.distributionMethod === 'CODE_PLUGIN' ? 
+                item.customEngineVersion : 
+                item.earliestUEVersion;
+            
+            if (versionInput.value !== expectedVersion) {
+                console.error(`Version mismatch. Expected: ${expectedVersion}, Got: ${versionInput.value}`);
+                return false;
+            }
+    
+            return true;
+        }
+
         function waitForButton(selector, timeout = 10000) {
             return new Promise((resolve) => {
                 let checkInterval;
@@ -161,28 +212,124 @@
             });
         }
     
+        // countdown before clicking start job
+        async function showCountdownModal(seconds) {
+            let countdownInterval;
+            let isCancelled = false;
+        
+            return new Promise((resolve, reject) => {
+                const modal = document.createElement('div');
+                modal.id = 'countdown-modal';
+                modal.setAttribute('role', 'dialog');
+                modal.setAttribute('aria-modal', 'true');
+                modal.style.cssText = `
+                    position: fixed;
+                    top: 10%;
+                    left: 50%;
+                    transform: translate(-50%, -50%);
+                    background: white;
+                    padding: 20px;
+                    border: 2px solid #ccc;
+                    border-radius: 10px;
+                    z-index: 2147483647;  /* Maximum possible z-index */
+                    text-align: center;
+                    min-width: 300px;
+                    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+                `;
+        
+                // Add overlay to capture clicks
+                const overlay = document.createElement('div');
+                overlay.style.cssText = `
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    right: 0;
+                    bottom: 0;
+                    background: rgba(0, 0, 0, 0.2);
+                    z-index: 2147483646;
+                `;
+                document.body.appendChild(overlay);
+        
+                const messageDiv = document.createElement('div');
+                messageDiv.style.cssText = 'font-size: 18px; margin-bottom: 15px;';
+                modal.appendChild(messageDiv);
+        
+                const cancelBtn = document.createElement('button');
+                cancelBtn.textContent = 'Cancel';
+                cancelBtn.style.cssText = `
+                    padding: 8px 20px;
+                    background: #dc3545;
+                    color: white;
+                    border: none;
+                    border-radius: 5px;
+                    cursor: pointer;
+                    position: relative;
+                    z-index: 2147483647;
+                `;
+        
+                // Use mousedown instead of click
+                cancelBtn.addEventListener('mousedown', (e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    isCancelled = true;
+                    clearInterval(countdownInterval);
+                    modal.remove();
+                    overlay.remove();
+                    reject('cancelled');
+                }, true);
+        
+                modal.appendChild(messageDiv);
+                modal.appendChild(cancelBtn);
+                
+                // Force the modal to the body end to ensure highest z-index
+                document.body.appendChild(modal);
+                
+                // Try to break focus trap
+                setTimeout(() => {
+                    cancelBtn.focus();
+                    // Try to find and disable any existing focus traps
+                    const existingTraps = document.querySelectorAll('[aria-modal="true"]');
+                    existingTraps.forEach(trap => {
+                        if (trap !== modal) {
+                            trap.setAttribute('aria-modal', 'false');
+                        }
+                    });
+                }, 0);
+        
+                let remainingSeconds = seconds;
+                // Set initial message with innerHTML
+                messageDiv.innerHTML = `Starting job in ${remainingSeconds} seconds...<br><span style="color: yellow; font-weight: bold;">Please verify that the job parameters are correct <br>or cancel the job creation</span>`;
+
+                countdownInterval = setInterval(() => {
+                    if (isCancelled) return;
+                    
+                    remainingSeconds--;
+                    messageDiv.innerHTML = `Starting job in ${remainingSeconds} seconds...<br><span style="color: yellow; font-weight: bold;">Please verify that the job parameters are correct <br>or cancel the job creation</span>`;
+
+                    if (remainingSeconds <= 0) {
+                        clearInterval(countdownInterval);
+                        modal.remove();
+                        overlay.remove();
+                        resolve();
+                    }
+                }, 1000);
+            });
+        }
         async function processForm() {
             try {
-                // Wait for initial elements to load
                 await new Promise(resolve => setTimeout(resolve, 1000));
-
-              
-    
-                // Find and click the form button
+        
                 const formButton = await waitForButton('#id__41');
                 if (!formButton) {
                     throw new Error('Initial form button not found');
                 }
                 formButton.click();
-    
-                // Wait for form to load
+        
                 await new Promise(resolve => setTimeout(resolve, 1500));
-
-                closeModal(); // Close the modal right before processing the form
-    
-                // Process each item in the data array
+                
+                closeModal();
+        
                 for (const item of data) {
-                    
                     console.log('Processing item:', item);
                     
                     if (item.distributionMethod === 'CODE_PLUGIN') {
@@ -192,19 +339,34 @@
                         fillInput('AssetPack/CompleteProject Items', item.appName);
                         fillInput('AssetPack/CompleteProject Versions', item.earliestUEVersion);
                     }
-    
+        
                     if (item.targetPlatforms.length === 1 && item.targetPlatforms[0] === 'Windows') {
                         uncheckCheckbox('Mac');
                     }
                 }
-    
-                // // Find and click the Start Job button
+        
+                // Validate all fields before proceeding
+                const isValid = data.every(item => validateFields(item));
+                if (!isValid) {
+                    throw new Error('Form validation failed - some fields were not filled correctly');
+                }
+        
                 const startJobButton = await waitForButton('start-job');
                 if (!startJobButton) {
                     throw new Error('Start Job button not found');
                 }
-                startJobButton.click();
-                console.log('Form submitted successfully');
+        
+                // Show countdown modal
+                console.log('Form validation passed, starting countdown...');
+                try {
+                    await showCountdownModal(20);
+                    console.log('Countdown completed, submitting form...');
+                    startJobButton.click();
+                    console.log('Form submitted successfully');
+                } catch (error) {
+                    console.log('Submission cancelled or error occurred:', error.message);
+                    return; // Exit without clicking the start job button
+                }
                 
             } catch (error) {
                 console.error('Error in processForm:', error);
@@ -262,37 +424,44 @@
         }
     }
 
-    const uniqueModalId = 'custom-modal-unique';
+    const MODAL_IDS = {
+        HORDE: 'custom-modal-unique',
+        COUNTDOWN: 'countdown-modal'
+    };
 
-    function showHordeModal(message) {
-        console.log('Creating modal with message:', message); // Debugging log
-        const modal = document.createElement('div');
-        modal.id = uniqueModalId;
-        modal.style.cssText = `
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: 300px;
-            background: white;
-            border: 2px solid #ccc;
-            border-radius: 10px;
-            padding: 15px;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-            z-index: 1000000;
-            text-align: center;
-        `;
-        modal.innerHTML = `<p>${message}</p>`;
-        document.body.appendChild(modal);
-    }
+    
+function showHordeModal(message) {
+    console.log('Creating modal with message:', message);
+    const modal = document.createElement('div');
+    modal.id = MODAL_IDS.HORDE;  // Use consistent ID
+    modal.style.cssText = `
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 300px;
+        background: white;
+        border: 2px solid #ccc;
+        border-radius: 10px;
+        padding: 15px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        z-index: 1000000;
+        text-align: center;
+    `;
+    modal.innerHTML = `<p>${message}</p>`;
+    document.body.appendChild(modal);
+}
 
-    function closeModal() {
-        const modal = document.getElementById(uniqueModalId);
+function closeModal() {
+    // Close all possible modals
+    Object.values(MODAL_IDS).forEach(id => {
+        const modal = document.getElementById(id);
         if (modal) {
-            console.log('Closing modal'); // Debugging log
-            modal.parentNode.removeChild(modal);
+            console.log(`Closing modal: ${id}`);
+            modal.remove();
         }
-    }
+    });
+}
 
     
         // Function to observe page content and initialize UI
@@ -700,7 +869,7 @@ async function getFabURL(caseNumber) {
         modal.appendChild(noteDiv);
 
         const link = document.createElement('a');
-        link.href = 'https://212oscar.github.io/sforward/documentation.html'; // Replace with the actual documentation link
+        link.href = 'https://docs.google.com/document/d/1uEeayASYOLTKaD5J3UBFcM-9F2KYivbOIhBoXvOsAWM/edit?usp=sharing'; // Replace with the actual documentation link
         link.target = '_blank';
         link.innerText = 'Not sure about this? Read Documentation, worth it :)';
         link.style.cssText = `
@@ -1502,7 +1671,7 @@ if (relevantShift) {
         `;
 
         const linkIcon = document.createElement('a');
-        linkIcon.href = 'https://212oscar.github.io/sforward/documentation.html';
+        linkIcon.href = 'https://docs.google.com/document/d/1uEeayASYOLTKaD5J3UBFcM-9F2KYivbOIhBoXvOsAWM/edit?tab=t.bcuqnlw8w2b3';
         linkIcon.target = '_blank';
         linkIcon.innerText = '?';
         linkIcon.style.cssText = `
