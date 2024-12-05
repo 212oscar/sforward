@@ -224,10 +224,11 @@
                 modal.setAttribute('aria-modal', 'true');
                 modal.style.cssText = `
                     position: fixed;
+                    color: white;
                     top: 10%;
                     left: 50%;
                     transform: translate(-50%, -50%);
-                    background: white;
+                    background: black;
                     padding: 20px;
                     border: 2px solid #ccc;
                     border-radius: 10px;
