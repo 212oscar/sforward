@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         SFhelper
 // @namespace    http://tampermonkey.net/
-// @version      2.9.4
+// @version      2.9.5
 // @description  Designed to assist mods (T1 & T2) in the workflow.
 // @author       Oscar O.
 // @match        https://epicgames.lightning.force.com/lightning/*
@@ -11,6 +11,7 @@
 // @connect      fab-admin.daec.live.use1a.on.epicgames.com
 // @downloadURL  https://raw.githubusercontent.com/212oscar/sforward/main/tp-uemkp-scripts/SFhelper.js
 // @updateURL    https://raw.githubusercontent.com/212oscar/sforward/main/tp-uemkp-scripts/SFhelper.js
+// @history      2.9.5 Fixed some bugs where the Horde button was not creating jobs due to horde being slow, still can fail but now is less probably!
 // @history      2.9.4 Fixed a bug where when working with multiples SF tabs, changing the case status will change the status of another tab and not the visible one (Thanks to Christian E. for reporting this issue), Added a confirmation message when clicking the "Decline" button.
 // @history      2.9.3 Added midnight PST shift splitter, separated shift if is cross-midnight PST send shift report for each part of the split shift and reminder to send the shift report, some visual improvements.
 // @history      2.9.1 Added a Close button to change the case status. Improved the Shift Report, now Support case types are allowed, now you only need to paste the URL of the Google Sheets or Google Drive Folder. Deleted some unused code .
@@ -117,82 +118,146 @@
         // Check for the custom property to ensure the message is intended for your script
         if (customProperty !== 'SFHelper') return;
 
-        // Show "Please wait" modal
-        showHordeModal('Please wait');
-
-        setTimeout(() => {
-            if (type === 'HORDE_APP_DATA') {
-                console.log('Received app data for Horde:', data);
-                closeModal();
-                showHordeModal('Please wait, getting app info');
-                fillHordeForm(data);
-            }
-        }, 2000);
+        if (type === 'HORDE_APP_DATA') {
+            console.log('Received app data for Horde:', data);
+            showHordeModal('Please wait, getting app info');
+            fillHordeForm(data);
+        }
     });
 
 
     function fillHordeForm(data) {
-
-        // Click the button to open the form
-        document.querySelector('#id__41').click();
-       
-
-        // Allow 3 seconds to load the page properly
-        setTimeout(() => {
-            
-            data.forEach(item => {
-                if (item.distributionMethod === 'CODE_PLUGIN') {
-                    fillInput('Plugin Items', item.appName);
-                    fillInput('Custom Engine Version', item.customEngineVersion);
-                } else {
-                    fillInput('AssetPack/CompleteProject Items', item.appName);
-                    fillInput('AssetPack/CompleteProject Versions', item.earliestUEVersion);
-                }
-
-                if (item.targetPlatforms.length === 1 && item.targetPlatforms[0] === 'Windows') {
-                    uncheckCheckbox('Mac');
-                }
-
-                console.log('Form filled');
+        function waitForButton(selector, timeout = 10000) {
+            return new Promise((resolve) => {
+                let checkInterval;
+                let timeoutId;
+        
+                const cleanup = () => {
+                    if (checkInterval) clearInterval(checkInterval);
+                    if (timeoutId) clearTimeout(timeoutId);
+                };
+        
+                checkInterval = setInterval(() => {
+                    let button;
+                    if (selector === 'start-job') {
+                        button = Array.from(document.querySelectorAll('button.ms-Button.ms-Button--primary'))
+                            .find(btn => btn.querySelector('.ms-Button-label')?.textContent === 'Start Job');
+                    } else {
+                        button = document.querySelector(selector);
+                    }
+                    
+                    if (button) {
+                        cleanup();
+                        resolve(button);
+                    }
+                }, 100);
+        
+                timeoutId = setTimeout(() => {
+                    cleanup();
+                    console.error(`Button ${selector} not found after ${timeout/1000} seconds`);
+                    resolve(null);
+                }, timeout);
             });
+        }
+    
+        async function processForm() {
+            try {
+                // Wait for initial elements to load
+                await new Promise(resolve => setTimeout(resolve, 1000));
 
-            closeModal();
-
-            // Add a 800 ms delay before clicking the "Start Job" button
-            setTimeout(() => {
-                const startJobButton = document.querySelector('button.ms-Button.ms-Button--primary.root-430');
-                if (startJobButton) {
-                    startJobButton.click();
-                    console.log('Start Job button clicked');
-                } else {
-                    console.error('Start Job button not found');
+              
+    
+                // Find and click the form button
+                const formButton = await waitForButton('#id__41');
+                if (!formButton) {
+                    throw new Error('Initial form button not found');
                 }
-            }, 800);
-        }, 3000); // Adjust the delay as needed
-    }
+                formButton.click();
+    
+                // Wait for form to load
+                await new Promise(resolve => setTimeout(resolve, 1500));
 
+                closeModal(); // Close the modal right before processing the form
+    
+                // Process each item in the data array
+                for (const item of data) {
+                    
+                    console.log('Processing item:', item);
+                    
+                    if (item.distributionMethod === 'CODE_PLUGIN') {
+                        fillInput('Plugin Items', item.appName);
+                        fillInput('Custom Engine Version', item.customEngineVersion);
+                    } else {
+                        fillInput('AssetPack/CompleteProject Items', item.appName);
+                        fillInput('AssetPack/CompleteProject Versions', item.earliestUEVersion);
+                    }
+    
+                    if (item.targetPlatforms.length === 1 && item.targetPlatforms[0] === 'Windows') {
+                        uncheckCheckbox('Mac');
+                    }
+                }
+    
+                // // Find and click the Start Job button
+                const startJobButton = await waitForButton('start-job');
+                if (!startJobButton) {
+                    throw new Error('Start Job button not found');
+                }
+                startJobButton.click();
+                console.log('Form submitted successfully');
+                
+            } catch (error) {
+                console.error('Error in processForm:', error);
+                alert(`Error processing form: ${error.message}`);
+            }
+        }
+    
+        // Start the form processing
+       
+        processForm();
+    }
+    
     function fillInput(labelText, value) {
         const input = Array.from(document.querySelectorAll('label'))
             .find(label => label.textContent.includes(labelText))
             ?.nextElementSibling?.querySelector('input');
-        if (input) {
+        
+        if (!input) {
+            console.error(`Input for "${labelText}" not found`);
+            return;
+        }
+    
+        try {
             const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
             nativeInputValueSetter.call(input, value);
-
-            // Trigger input and change events to notify JavaScript frameworks
+    
             const inputEvent = new Event('input', { bubbles: true });
             const changeEvent = new Event('change', { bubbles: true });
             input.dispatchEvent(inputEvent);
             input.dispatchEvent(changeEvent);
+            
+            console.log(`Successfully set value for ${labelText}: ${value}`);
+        } catch (error) {
+            console.error(`Error setting value for ${labelText}:`, error);
         }
     }
-
+    
     function uncheckCheckbox(labelText) {
         const checkbox = Array.from(document.querySelectorAll('label'))
             .find(label => label.textContent.includes(labelText))
             ?.previousElementSibling;
-        if (checkbox && checkbox.checked) {
-            checkbox.click();
+        
+        if (!checkbox) {
+            console.error(`Checkbox for "${labelText}" not found`);
+            return;
+        }
+    
+        if (checkbox.checked) {
+            try {
+                checkbox.click();
+                console.log(`Successfully unchecked ${labelText} checkbox`);
+            } catch (error) {
+                console.error(`Error unchecking ${labelText} checkbox:`, error);
+            }
         }
     }
 
@@ -2968,10 +3033,13 @@ if (relevantShift) {
             customEventLabel.htmlFor = 'customEventCheckbox';
             customEventLabel.innerText = 'Add custom event/Task, etc. (Meetings, Horde outages, etc.)';
         
+            // In the showShiftReportModal function, modify the customEventInput creation:
             const customEventInput = document.createElement('input');
             customEventInput.type = 'number';
             customEventInput.id = 'customEventInput';
             customEventInput.placeholder = 'Minutes';
+            customEventInput.min = '0';
+            customEventInput.max = totalMinutes.toString(); // Set maximum to total shift duration
             customEventInput.style.cssText = `
                 display: none;
                 margin-top: 10px;
@@ -2980,6 +3048,28 @@ if (relevantShift) {
                 border: 1px solid #ccc;
                 border-radius: 5px;
             `;
+
+            // Add input validation
+            customEventInput.addEventListener('input', () => {
+                const inputValue = parseInt(customEventInput.value);
+                if (inputValue > totalMinutes) {
+                    alert(`Value cannot exceed shift duration (${totalMinutes} minutes)`);
+                    customEventInput.value = totalMinutes;
+                } else if (inputValue < 0) {
+                    customEventInput.value = 0;
+                }
+                updateProductivity();
+            });
+
+            // Also validate on blur to catch pasted values
+            customEventInput.addEventListener('blur', () => {
+                const inputValue = parseInt(customEventInput.value);
+                if (inputValue > totalMinutes) {
+                    customEventInput.value = totalMinutes;
+                    alert(`Value cannot exceed shift duration (${totalMinutes} minutes)`);
+                    updateProductivity();
+                }
+            });
         
             customEventCheckbox.addEventListener('change', () => {
                 if (customEventCheckbox.checked) {
@@ -2990,9 +3080,6 @@ if (relevantShift) {
                 updateProductivity();
             });
         
-            customEventInput.addEventListener('input', () => {
-                updateProductivity();
-            });
         
             // Custom multiplier checkbox and label
             const customMultiplierCheckbox = document.createElement('input');
