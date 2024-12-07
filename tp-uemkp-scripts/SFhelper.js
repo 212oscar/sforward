@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         SFhelper
 // @namespace    http://tampermonkey.net/
-// @version      2.9.7
+// @version      2.9.7.1
 // @description  Designed to assist mods (T1 & T2) in the workflow and shift reports.
 // @author       Oscar O.
 // @match        https://epicgames.lightning.force.com/lightning/*
@@ -11,6 +11,7 @@
 // @connect      fab-admin.daec.live.use1a.on.epicgames.com
 // @downloadURL  https://raw.githubusercontent.com/212oscar/sforward/main/tp-uemkp-scripts/SFhelper.user.js
 // @updateURL    https://raw.githubusercontent.com/212oscar/sforward/main/tp-uemkp-scripts/SFhelper.user.js
+// @history      2.9.7.1 Updated the Binary string for 5.2 versions when hording plugins (5.2.1-26001984+++UE5+Release-5.2) was updated yesterday 12/05/2024
 // @history      2.9.7 Added user side validation (countdown) before creating the job automatically in Horde, also added internal validation to avoid creating jobs with empty fields, updated Documentation (more user friendly)
 // @history      2.9.6 New download/update link for easier installation the first time.
 // @history      2.9.5 Fixed some bugs where the Horde button was not creating jobs due to horde being slow, still can fail but now is less probably!
@@ -2372,7 +2373,8 @@ if (relevantShift) {
                     const p4vData = {
                         earliestUEVersion: getEarliestUEVersion(item.engineVersion),
                         distributionMethod: distributionMethod,
-                        appName: item.appName
+                        appName: item.appName,
+                        SFcase: getCaseNumber()
                     };
                     copyToClipboard(JSON.stringify(p4vData, null, 2), p4vButton);
                 });
@@ -3621,7 +3623,7 @@ if (relevantShift) {
             '4.27': '4.27.0-17155196+++UE4+Release-4.27',
             '5.0': '5.0.0-19505902+++UE5+Release-5.0',
             '5.1': '5.1.0-23058290+++UE5+Release-5.1',
-            '5.2': '5.2.0-25360045+++UE5+Release-5.2',
+            '5.2': '5.2.1-26001984+++UE5+Release-5.2',
             '5.3': '5.3.0-27405482+++UE5+Release-5.3',
             '5.4': '5.4.0-33043543+++UE5+Release-5.4',
             '5.5': '5.5.0-37670630+++UE5+Release-5.5'
