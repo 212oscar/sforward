@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         SFhelper
 // @namespace    http://tampermonkey.net/
-// @version      2.9.7.1
+// @version      2.9.7.2
 // @description  Designed to assist mods (T1 & T2) in the workflow and shift reports.
 // @author       Oscar O.
 // @match        https://epicgames.lightning.force.com/lightning/*
