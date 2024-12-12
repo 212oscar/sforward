@@ -11,6 +11,7 @@
 // @connect      fab-admin.daec.live.use1a.on.epicgames.com
 // @downloadURL  https://raw.githubusercontent.com/212oscar/sforward/main/tp-uemkp-scripts/SFhelper.user.js
 // @updateURL    https://raw.githubusercontent.com/212oscar/sforward/main/tp-uemkp-scripts/SFhelper.user.js
+// @history      2.9.7.2 Updated the Binary string for 5.2 version when hording plugins (5.2.0-25360045+++UE5+Release-5.2) was updated again in the confluence
 // @history      2.9.7.1 Updated the Binary string for 5.2 versions when hording plugins (5.2.1-26001984+++UE5+Release-5.2) was updated yesterday 12/05/2024
 // @history      2.9.7 Added user side validation (countdown) before creating the job automatically in Horde, also added internal validation to avoid creating jobs with empty fields, updated Documentation (more user friendly)
 // @history      2.9.6 New download/update link for easier installation the first time.
@@ -3623,7 +3624,7 @@ if (relevantShift) {
             '4.27': '4.27.0-17155196+++UE4+Release-4.27',
             '5.0': '5.0.0-19505902+++UE5+Release-5.0',
             '5.1': '5.1.0-23058290+++UE5+Release-5.1',
-            '5.2': '5.2.1-26001984+++UE5+Release-5.2',
+            '5.2': '5.2.0-25360045+++UE5+Release-5.2',
             '5.3': '5.3.0-27405482+++UE5+Release-5.3',
             '5.4': '5.4.0-33043543+++UE5+Release-5.4',
             '5.5': '5.5.0-37670630+++UE5+Release-5.5'
