@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         SFhelper
 // @namespace    http://tampermonkey.net/
-// @version      2.9.7.2
+// @version      2.9.8
 // @description  Designed to assist mods (T1 & T2) in the workflow and shift reports.
 // @author       Oscar O.
 // @match        https://epicgames.lightning.force.com/lightning/*
@@ -11,6 +11,7 @@
 // @connect      fab-admin.daec.live.use1a.on.epicgames.com
 // @downloadURL  https://raw.githubusercontent.com/212oscar/sforward/main/tp-uemkp-scripts/SFhelper.user.js
 // @updateURL    https://raw.githubusercontent.com/212oscar/sforward/main/tp-uemkp-scripts/SFhelper.user.js
+// @history      2.9.8 Fixed a bug where template IDs were not being stored correctly after using the edit button, now the URL will be stored instead of the extracted ID.
 // @history      2.9.7.2 Updated the Binary string for 5.2 version when hording plugins (5.2.0-25360045+++UE5+Release-5.2) was updated again in the confluence
 // @history      2.9.7.1 Updated the Binary string for 5.2 versions when hording plugins (5.2.1-26001984+++UE5+Release-5.2) was updated yesterday 12/05/2024
 // @history      2.9.7 Added user side validation (countdown) before creating the job automatically in Horde, also added internal validation to avoid creating jobs with empty fields, updated Documentation (more user friendly)
@@ -979,123 +980,140 @@ function getTemplateSheetId(template, callback) {
 }
 
     // Function to show a modal to edit stored template IDs and folder ID
-function showEditModal() {
-    const modal = document.createElement('div');
-    modal.id = 'custom-modal';
-    modal.style.cssText = `
-        position: fixed;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        background: white;
-        padding: 20px;
-        border: 1px solid #ccc;
-        border-radius: 5px;
-        z-index: 10000;
-        max-height: 80%;
-        overflow-y: auto;
-    `;
-
-    const title = document.createElement('h3');
-    title.innerHTML = 'Edit Google Sheets Templates and Drive folder<hr>';
-    modal.appendChild(title);
-
-    const form = document.createElement('form');
-    form.style.cssText = 'display: flex; flex-direction: column; gap: 10px;';
-
-    // Add input fields for each template ID
-    templateSheetIds.forEach((_, template) => {
-        const label = document.createElement('label');
-        label.innerText = `${template} Template URL:`;
-        form.appendChild(label);
-
-        const input = document.createElement('input');
-        input.type = 'text';
-        input.value = localStorage.getItem(template) || '';
-        input.dataset.template = template;
-        input.placeholder = 'Enter Google Sheet URL';
-        input.style.cssText = `
+    function showEditModal() {
+        const modal = document.createElement('div');
+        modal.id = 'custom-modal';
+        modal.style.cssText = `
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 20px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            z-index: 10000;
+            max-height: 80%;
+            overflow-y: auto;
+        `;
+    
+        const title = document.createElement('h3');
+        title.innerHTML = 'Edit Google Sheets Templates and Drive folder<hr>';
+        modal.appendChild(title);
+    
+        const form = document.createElement('form');
+        form.style.cssText = 'display: flex; flex-direction: column; gap: 10px;';
+    
+        // Add input fields for each template ID
+        templateSheetIds.forEach((_, template) => {
+            const storedValue = localStorage.getItem(template) || '';
+            const label = document.createElement('label');
+            label.innerText = `${template} Template URL:`;
+            form.appendChild(label);
+    
+            const input = document.createElement('input');
+            input.type = 'text';
+            // Convert stored ID back to a URL format for display
+            input.value = storedValue ? `https://docs.google.com/spreadsheets/d/${storedValue}/edit` : '';
+            input.dataset.template = template;
+            input.dataset.originalValue = storedValue; // Store the original value
+            input.placeholder = 'Enter Google Sheet URL';
+            input.style.cssText = `
+                width: 100%;
+                padding: 10px;
+                border: 1px solid #ccc;
+                border-radius: 5px;
+            `;
+            form.appendChild(input);
+        });
+    
+        // Add input field for folder ID
+        const folderLabel = document.createElement('label');
+        folderLabel.innerText = 'Google Drive Folder URL:';
+        form.appendChild(folderLabel);
+    
+        const storedFolderId = localStorage.getItem('folderId') || '';
+        const folderInput = document.createElement('input');
+        folderInput.type = 'text';
+        // Convert stored ID back to a URL format for display
+        folderInput.value = storedFolderId ? `https://drive.google.com/drive/folders/${storedFolderId}` : '';
+        folderInput.dataset.template = 'folderId';
+        folderInput.dataset.originalValue = storedFolderId; // Store the original value
+        folderInput.placeholder = 'Enter Google Drive Folder URL';
+        folderInput.style.cssText = `
             width: 100%;
             padding: 10px;
             border: 1px solid #ccc;
             border-radius: 5px;
         `;
-        form.appendChild(input);
-    });
-
-    // Add input field for folder ID
-    const folderLabel = document.createElement('label');
-    folderLabel.innerText = 'Google Drive Folder URL:';
-    form.appendChild(folderLabel);
-
-    const folderInput = document.createElement('input');
-    folderInput.type = 'text';
-    folderInput.value = localStorage.getItem('folderId') || '';
-    folderInput.dataset.template = 'folderId';
-    folderInput.placeholder = 'Enter Google Drive Folder URL';
-    folderInput.style.cssText = `
-        width: 100%;
-        padding: 10px;
-        border: 1px solid #ccc;
-        border-radius: 5px;
-    `;
-    form.appendChild(folderInput);
-
-    modal.appendChild(form);
-
-    const buttonContainer = document.createElement('div');
-    buttonContainer.style.cssText = `
-        display: flex;
-        justify-content: space-between;
-        margin-top: 10px;
-    `;
-
-    const saveButton = document.createElement('button');
-    saveButton.innerText = 'Save';
-    saveButton.style.cssText = `
-        padding: 10px;
-        background: #007bff;
-        color: white;
-        border: none;
-        border-radius: 5px;
-        cursor: pointer;
-    `;
-    saveButton.addEventListener('click', (event) => {
-        event.preventDefault();
-        const inputs = form.querySelectorAll('input');
-        inputs.forEach(input => {
-            const key = input.dataset.template;
-            const value = input.value.trim();
-            const extractedId = extractGoogleId(value);
-            if (extractedId) {
-                localStorage.setItem(key, extractedId);
-            } else {
-                localStorage.removeItem(key);
-            }
+        form.appendChild(folderInput);
+    
+        modal.appendChild(form);
+    
+        const buttonContainer = document.createElement('div');
+        buttonContainer.style.cssText = `
+            display: flex;
+            justify-content: space-between;
+            margin-top: 10px;
+        `;
+    
+        const saveButton = document.createElement('button');
+        saveButton.innerText = 'Save';
+        saveButton.style.cssText = `
+            padding: 10px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        `;
+        saveButton.addEventListener('click', (event) => {
+            event.preventDefault();
+            const inputs = form.querySelectorAll('input');
+            inputs.forEach(input => {
+                const key = input.dataset.template;
+                const value = input.value.trim();
+                const originalValue = input.dataset.originalValue;
+    
+                if (value === '') {
+                    // If the input is empty, keep the original value
+                    if (originalValue) {
+                        localStorage.setItem(key, originalValue);
+                    }
+                } else {
+                    // Only update if the value has changed
+                    const extractedId = extractGoogleId(value);
+                    if (extractedId && extractedId !== originalValue) {
+                        localStorage.setItem(key, extractedId);
+                    } else if (!extractedId && originalValue) {
+                        // If new value is invalid but we have an original value, keep it
+                        localStorage.setItem(key, originalValue);
+                    }
+                }
+            });
+            document.body.removeChild(modal);
         });
-        document.body.removeChild(modal);
-    });
-    buttonContainer.appendChild(saveButton);
-
-    const cancelButton = document.createElement('button');
-    cancelButton.innerText = 'Cancel';
-    cancelButton.style.cssText = `
-        padding: 10px;
-        background: #f44336;
-        color: white;
-        border: none;
-        border-radius: 5px;
-        cursor: pointer;
-    `;
-    cancelButton.addEventListener('click', () => {
-        document.body.removeChild(modal);
-    });
-    buttonContainer.appendChild(cancelButton);
-
-    modal.appendChild(buttonContainer);
-
-    document.body.appendChild(modal);
-}
+        buttonContainer.appendChild(saveButton);
+    
+        const cancelButton = document.createElement('button');
+        cancelButton.innerText = 'Cancel';
+        cancelButton.style.cssText = `
+            padding: 10px;
+            background: #f44336;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        `;
+        cancelButton.addEventListener('click', () => {
+            document.body.removeChild(modal);
+        });
+        buttonContainer.appendChild(cancelButton);
+    
+        modal.appendChild(buttonContainer);
+    
+        document.body.appendChild(modal);
+    }
 
 function initializeUI() {
     console.log('Initializing UI...');
@@ -2375,7 +2393,8 @@ if (relevantShift) {
                         earliestUEVersion: getEarliestUEVersion(item.engineVersion),
                         distributionMethod: distributionMethod,
                         appName: item.appName,
-                        SFcase: getCaseNumber()
+                        SFcase: getCaseNumber(),
+                        caseType: caseOwner // This is already available in the modal scope
                     };
                     copyToClipboard(JSON.stringify(p4vData, null, 2), p4vButton);
                 });
