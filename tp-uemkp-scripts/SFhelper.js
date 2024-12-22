@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         SFhelper
 // @namespace    http://tampermonkey.net/
-// @version      2.9.9
+// @version      2.9.9.1
 // @description  Designed to assist mods (T1 & T2) in the workflow and shift reports.
 // @author       Oscar O.
 // @match        https://epicgames.lightning.force.com/lightning/*
@@ -11,6 +11,7 @@
 // @connect      fab-admin.daec.live.use1a.on.epicgames.com
 // @downloadURL  https://raw.githubusercontent.com/212oscar/sforward/main/tp-uemkp-scripts/SFhelper.user.js
 // @updateURL    https://raw.githubusercontent.com/212oscar/sforward/main/tp-uemkp-scripts/SFhelper.user.js
+// @history      2.9.9.1 Improved the Copy notifications when the SF case, App names or P4V info is copied 
 // @history      2.9.9 Improved the App names displaying style and added a warning when seller is BLUE or SBP
 // @history      2.9.8 Fixed a bug where template IDs were not being stored correctly after using the edit button, now the URL will be stored instead of the extracted ID.
 // @history      2.9.7.2 Updated the Binary string for 5.2 version when hording plugins (5.2.0-25360045+++UE5+Release-5.2) was updated again in the confluence
@@ -1241,12 +1242,17 @@ function initializeUI() {
         }
         const caseNumber = getCaseNumber();
         if (caseNumber) {
-            copyToClipboard(caseNumber, copyCaseButton);
+            navigator.clipboard.writeText(caseNumber).then(() => {
+                copyCaseNotification.show();
+            });
         } else {
             alert('SF Case Number not found!');
         }
     });
-    section1.appendChild(copyCaseButton);
+
+    // Create notification for the Copy Case button
+    const copyCaseNotification = createCopyNotification(copyCaseButton);
+    section1.appendChild(copyCaseNotification.wrapper);
 
     // Create the TRC template submenu
     const trcTemplateMenu = document.createElement('div');
@@ -1964,6 +1970,7 @@ if (relevantShift) {
                 localStorage.removeItem('sfCaseLog');
                 console.log('Log cleared.');
                 modal.remove(); // Close the modal
+                removeOverlay();
             }
         });
         buttonContainer.appendChild(clearButton);
@@ -2743,15 +2750,6 @@ if (relevantShift) {
             z-index: 1;
         `;
     
-        // Create a wrapper div for app name container
-        const appNameWrapper = document.createElement('div');
-        appNameWrapper.style.cssText = `
-            position: relative;
-            padding-top: 25px;
-            margin-top: -25px;
-            z-index: 1;
-        `;
-    
         // Create clickable app name container
         const appNameContainer = document.createElement('div');
         appNameContainer.style.cssText = `
@@ -2764,35 +2762,12 @@ if (relevantShift) {
         `;
         appNameContainer.innerHTML = `<strong style="font-size: 16px;">${item.appName}</strong>`;
     
-        // Create copied notification
-        const copiedNotification = document.createElement('div');
-        copiedNotification.style.cssText = `
-            position: absolute;
-            top: 0;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(40, 167, 69, 0.9);
-            color: white;
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 12px;
-            opacity: 0;
-            transition: opacity 0.3s;
-            pointer-events: none;
-            white-space: nowrap;
-            z-index: 999999;
-        `;
-        copiedNotification.textContent = 'App Name Copied!';
-        appNameWrapper.appendChild(copiedNotification);
-        appNameWrapper.appendChild(appNameContainer);
-    
+        // Create notification for app name using updated function
+        const appNameWithNotification = createCopyNotification(appNameContainer);
         appNameContainer.addEventListener('click', (e) => {
             e.stopPropagation();
             navigator.clipboard.writeText(item.appName).then(() => {
-                copiedNotification.style.opacity = '1';
-                setTimeout(() => {
-                    copiedNotification.style.opacity = '0';
-                }, 1500);
+                appNameWithNotification.show();
             });
         });
     
@@ -2823,6 +2798,9 @@ if (relevantShift) {
             cursor: pointer;
             font-size: 14px;
         `;
+    
+        // Create notification for P4V button using updated function
+        const p4vWithNotification = createCopyNotification(p4vButton);
         p4vButton.addEventListener('click', (e) => {
             e.stopPropagation();
             const p4vData = {
@@ -2832,9 +2810,11 @@ if (relevantShift) {
                 SFcase: getCaseNumber(),
                 caseType: getCaseOwner()
             };
-            copyToClipboard(JSON.stringify(p4vData, null, 2), p4vButton);
+            navigator.clipboard.writeText(JSON.stringify(p4vData, null, 2)).then(() => {
+                p4vWithNotification.show();
+            });
         });
-        actionContainer.appendChild(p4vButton);
+        actionContainer.appendChild(p4vWithNotification.wrapper);
     
         // Horde button
         const hordeButton = document.createElement('button');
@@ -2874,7 +2854,7 @@ if (relevantShift) {
         detailsPanel.style.cssText = `
             padding: 15px;
             display: none;
-            background: transparent;  /* Change to transparent since wrapper handles background */
+            background: transparent;
         `;
         detailsPanel.innerHTML = `
             <div style="margin-bottom: 10px;"><strong>Engine Version:</strong> ${item.engineVersion}</div>
@@ -2885,11 +2865,11 @@ if (relevantShift) {
     
         if (item.isNewOrChanged === 'NO') {
             combinedBar.style.backgroundColor = "#FFD9B3";
-            detailsPanelWrapper.style.backgroundColor = "#FFD9B3";  // Set on wrapper instead of panel
+            detailsPanelWrapper.style.backgroundColor = "#FFD9B3";
         }
     
         // Assemble the combined bar
-        combinedBar.appendChild(appNameWrapper);
+        combinedBar.appendChild(appNameWithNotification.wrapper);
         combinedBar.appendChild(infoContainer);
         combinedBar.appendChild(actionContainer);
         combinedBar.appendChild(expandIndicator);
@@ -2911,7 +2891,6 @@ if (relevantShift) {
                 const isExpanded = detailsPanel.style.display === 'block';
                 
                 detailsPanel.style.display = isExpanded ? 'none' : 'block';
-                // Update border based on panel state
                 detailsPanelWrapper.style.border = isExpanded ? 'none' : '1px solid #ddd';
                 expandIndicator.style.transform = `rotate(${isExpanded ? '0' : '180'}deg)`;
                 expandIndicator.style.transition = 'transform 0.3s ease';
@@ -2949,6 +2928,53 @@ if (relevantShift) {
                 copiedLabel.remove();
             }, 2000);
         });
+    }
+
+    function createCopyNotification(element) {
+        // Create wrapper
+        const wrapper = document.createElement('div');
+        wrapper.classList.add('copy-notification-wrapper');
+        wrapper.style.cssText = `
+            position: relative;
+            padding-top: 25px;
+            margin-top: -25px;
+            z-index: 1;
+        `;
+    
+        // Create notification element
+        const notification = document.createElement('div');
+        notification.style.cssText = `
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(40, 167, 69, 0.9);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
+            white-space: nowrap;
+            z-index: 999999;
+        `;
+        notification.textContent = 'Copied!';
+    
+        // Add the notification to the wrapper
+        wrapper.appendChild(notification);
+        // Add the element to the wrapper
+        wrapper.appendChild(element);
+    
+        return {
+            wrapper: wrapper,
+            show: () => {
+                notification.style.opacity = '1';
+                setTimeout(() => {
+                    notification.style.opacity = '0';
+                }, 1500);
+            }
+        };
     }
 
     function createModal() {
