@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         SFhelper
 // @namespace    http://tampermonkey.net/
-// @version      2.9.8
+// @version      2.9.9
 // @description  Designed to assist mods (T1 & T2) in the workflow and shift reports.
 // @author       Oscar O.
 // @match        https://epicgames.lightning.force.com/lightning/*
@@ -11,6 +11,7 @@
 // @connect      fab-admin.daec.live.use1a.on.epicgames.com
 // @downloadURL  https://raw.githubusercontent.com/212oscar/sforward/main/tp-uemkp-scripts/SFhelper.user.js
 // @updateURL    https://raw.githubusercontent.com/212oscar/sforward/main/tp-uemkp-scripts/SFhelper.user.js
+// @history      2.9.9 Improved the App names displaying style and added a warning when seller is BLUE or SBP
 // @history      2.9.8 Fixed a bug where template IDs were not being stored correctly after using the edit button, now the URL will be stored instead of the extracted ID.
 // @history      2.9.7.2 Updated the Binary string for 5.2 version when hording plugins (5.2.0-25360045+++UE5+Release-5.2) was updated again in the confluence
 // @history      2.9.7.1 Updated the Binary string for 5.2 versions when hording plugins (5.2.1-26001984+++UE5+Release-5.2) was updated yesterday 12/05/2024
@@ -760,6 +761,69 @@ checkPageLoading();
         }
     }
 
+
+// Dark overlay
+
+let overlayInstance = null; // Keep track of the overlay instance
+
+function createOverlay() {
+    if (overlayInstance) {
+        return overlayInstance; // Return the existing overlay if already created
+    }
+
+    const shadowHost = document.createElement('div');
+    shadowHost.id = 'sf-helper-overlay-shadow';
+    shadowHost.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 9999;
+    `;
+
+    const shadowRoot = shadowHost.attachShadow({ mode: 'open' });
+    const overlay = document.createElement('div');
+    overlay.style.cssText = `
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        width: 100% !important;
+        height: 100% !important;
+        background-color: rgba(0, 0, 0, 0) !important; /* Start with transparent */
+        transition: background-color 0.3s ease-in-out !important; /* Smooth transition */
+        z-index: 9999 !important;
+    `;
+
+    shadowRoot.appendChild(overlay);
+
+    // Delay applying the rgba color to trigger the transition
+    setTimeout(() => {
+        overlay.style.backgroundColor = 'rgba(0, 0, 0, 0.4)';
+    }, 10);
+
+    document.body.appendChild(shadowHost);
+    overlayInstance = shadowHost;
+
+    return shadowHost;
+}
+
+function removeOverlay() {
+    if (overlayInstance) {
+        const overlay = overlayInstance.shadowRoot.querySelector('div');
+        overlay.style.backgroundColor = 'rgba(0, 0, 0, 0)'; // Fade out
+        setTimeout(() => {
+            overlayInstance.remove(); // Remove after transition
+            overlayInstance = null; // Clear the instance reference
+        }, 300); // Match the transition duration
+    }
+}
+
+
+
+
+
+
 //Function to get the FAB url
 
 async function getFabURL(caseNumber) {
@@ -833,6 +897,8 @@ async function getFabURL(caseNumber) {
 
     // Function to show a modal and collect user input
     function showModal(message, callback, defaultValue = '') {
+        const overlay = createOverlay();
+        document.body.appendChild(overlay);
         const modal = document.createElement('div');
         modal.id = 'custom-modal';
         modal.style.cssText = `
@@ -907,6 +973,7 @@ async function getFabURL(caseNumber) {
             if (value) {
                 callback(value);
                 document.body.removeChild(modal);
+                removeOverlay();
             } else {
                 alert('Please enter a value.');
             }
@@ -925,6 +992,7 @@ async function getFabURL(caseNumber) {
         `;
         cancelButton.addEventListener('click', () => {
             document.body.removeChild(modal);
+            removeOverlay();
         });
         buttonContainer.appendChild(cancelButton);
 
@@ -1591,6 +1659,8 @@ if (relevantShift) {
     }
 
     function showReminderModal(message, start, end) {
+        const overlay = createOverlay();
+        document.body.appendChild(overlay);
         const modal = document.createElement('div');
         modal.style.cssText = `
             position: fixed;
@@ -1633,6 +1703,7 @@ if (relevantShift) {
         `;
         allDoneButton.addEventListener('click', () => {
             modal.remove();
+            removeOverlay();
         });
     
         modal.appendChild(allDoneButton);
@@ -1717,6 +1788,7 @@ if (relevantShift) {
                 } else {
                     section.style.display = 'none';
                     button.innerText = `SF helper ${version} ▲`;
+                    removeOverlay();
                 }
             });
             button.appendChild(linkIcon); // Re-append the link icon
@@ -2197,265 +2269,656 @@ if (relevantShift) {
 
     //Function for get-info button
 
+    function extractUnityInfo(sectionElement) {
+        console.log('Starting Unity info extraction...');
+        
+        // Find the Unity section by looking for the span with the Unity content
+        const allSpans = getAllShadowElements(sectionElement, 'span[part="formatted-rich-text"]');
+        console.log('Found spans:', allSpans);
+    
+        let unityInfo = null;
+    
+        for (const span of allSpans) {
+            console.log('Checking span:', span);
+            
+            // Check if this span contains Unity content by looking at its innerHTML
+            if (span.innerHTML.includes('Unity Game Engine Format')) {
+                console.log('Unity section found in span:', span);
+    
+                // Create a temporary div to parse the HTML content
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = span.innerHTML;
+    
+                // Extract Product URL
+                const productUrlMatch = span.innerHTML.match(/Product Url:<\/b>\s*<a[^>]*href="([^"]*)"[^>]*>([^<]*)<\/a>/);
+                console.log('Product URL match:', productUrlMatch);
+    
+                // Extract Dependencies
+                const dependenciesMatch = span.innerHTML.match(/Contains Package Dependencies:<\/b>\s*([^<]*)</);
+                console.log('Dependencies match:', dependenciesMatch);
+    
+                // Extract Package Dependencies
+                const packageDepsMatch = span.innerHTML.match(/Package Dependencies:<\/b>\s*([^<]*)</);
+                console.log('Package Dependencies match:', packageDepsMatch);
+    
+                unityInfo = {
+                    productUrl: productUrlMatch ? {
+                        text: productUrlMatch[2],
+                        href: productUrlMatch[1]
+                    } : null,
+                    containsDependencies: dependenciesMatch ? dependenciesMatch[1].trim() : '',
+                    packageDependencies: packageDepsMatch ? packageDepsMatch[1].trim() : ''
+                };
+    
+                console.log('Extracted Unity Info:', unityInfo);
+                break;
+            }
+        }
+    
+        return unityInfo;
+    }
+
     function processListingContent() {
         closeExistingModal();
         const caseNumber = getCaseNumber();
-
+    
         if (!caseNumber) {
             console.error('Case Number not found.');
             alert('Case Number not found.');
             return [];
         }
-
-        // Find the aria-controls value associated with the active tab
+    
         const tabElement = document.querySelector(`a[title^="${caseNumber}"]`);
         if (!tabElement) {
             console.error('Tab element not found.');
             alert('Tab element not found.');
             return [];
         }
-
+    
         const ariaControls = tabElement.getAttribute('aria-controls');
         if (!ariaControls) {
             console.error('aria-controls attribute not found.');
             alert('aria-controls attribute not found.');
             return [];
         }
-
-        // Locate the section element with the corresponding ID
+    
         const sectionElement = document.getElementById(ariaControls);
         if (!sectionElement) {
             console.error('Section element not found.');
             alert('Section element not found.');
             return [];
         }
-
-        // Use getAllShadowElements to find elements within the section
+    
         const spans = getAllShadowElements(sectionElement, 'span.test-id__section-header-title');
         const listingSpan = Array.from(spans).find((span) => span.textContent.trim() === 'Listing Content');
-
+    
         if (!listingSpan) {
             console.error("Could not find the 'Listing Content' section.");
             alert("Could not find the 'Listing Content' section, you must be in a New Submission or Update case to use this.");
             return [];
         }
-
+    
         const listingSection = listingSpan.closest('section');
         if (!listingSection) {
             console.error("'Listing Content' section found, but no parent section found.");
             alert("'Listing Content' section found, but no parent section found.");
             return [];
         }
-
-        // Extract the rows from the table
+    
         const rows = listingSection.querySelectorAll('table tr');
-        if (rows.length === 0) {
-            console.error("No rows found in the 'Listing Content' section, check if is a Unity Product.");
-            alert("No rows found in the 'Listing Content' section, check if is a Unity Product.");
-            return [];
+        let info = [];
+        
+        if (rows.length > 0) {
+            info = Array.from(rows).slice(1).map((row) => {
+                const cells = row.querySelectorAll('td');
+                return {
+                    appName: cells[0]?.textContent.trim() || 'N/A',
+                    engineVersion: cells[2]?.textContent.trim() || 'N/A',
+                    targetPlatforms: cells[3]?.textContent.trim() || 'N/A',
+                    versionNotes: cells[4]?.textContent.trim() || 'N/A',
+                    downloadLink: cells[5]?.querySelector('a')?.href || 'N/A',
+                    isNewOrChanged: cells[6]?.textContent.trim() || 'N/A',
+                };
+            });
         }
-
-        const info = Array.from(rows).slice(1).map((row) => {
-            const cells = row.querySelectorAll('td');
-            return {
-                appName: cells[0]?.textContent.trim() || 'N/A',
-                engineVersion: cells[2]?.textContent.trim() || 'N/A',
-                targetPlatforms: cells[3]?.textContent.trim() || 'N/A',
-                versionNotes: cells[4]?.textContent.trim() || 'N/A',
-                downloadLink: cells[5]?.querySelector('a')?.href || 'N/A',
-                isNewOrChanged: cells[6]?.textContent.trim() || 'N/A',
-            };
-        }).filter((item) => item.isNewOrChanged === 'YES');
-
-        // Retrieve the Distribution Method
+    
         const paragraphs = getAllShadowElements(sectionElement, 'p');
         const distributionMethodParagraph = paragraphs.find((p) => p.textContent.includes('Distribution Method:'));
         const distributionMethod = distributionMethodParagraph?.textContent.replace('Distribution Method:', '').trim() || 'No Distribution Method found.';
-
-        // Retrieve the Ops Review information
+    
         const opsReviewParagraph = paragraphs.find((p) => p.textContent.includes('Ops Review required'));
         const opsReviewText = opsReviewParagraph?.textContent.trim() || 'No Ops Review information found.';
-
-        console.log('Distribution Method:', distributionMethod);
-        console.log('Filtered Info:', info);
-        console.log('Ops Review:', opsReviewText);
-
-        // Display the collected info in a modal
+    
         displayInfoInModal(distributionMethod, info, opsReviewText, getCaseOwner());
     }
 
     async function displayInfoInModal(distributionMethod, info, opsReviewText, caseOwner) {
         const modal = createModal();
+        modal.style.cssText = `
+            position: fixed;
+            top: 100px;
+            right: 200px;
+            width: 950px;
+            max-height: 80vh;
+            background: white;
+            border: 2px solid #ccc;
+            border-radius: 10px;
+            padding: 15px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            z-index: 10001;
+            overflow-y: auto;
+        `;
+    
         const modalContent = document.createElement('div');
         modalContent.style.cssText = 'margin-top: 20px;';
-    
-        // Get the case number
+        
+        // Get case number and status
         const caseNumber = getCaseNumber();
-        console.log('Case Number:', caseNumber); // Debugging log
+        console.log('Case Number:', caseNumber);
     
         // Find the aria-controls value associated with the active tab
         const tabElement = document.querySelector(`a[title^="${caseNumber}"]`);
         let isCancelled = false;
         let colorSquare = '';
-    
+
+         // Check for seller status colors
+         const ariaControls = tabElement.getAttribute('aria-controls');
+         const sectionElement = document.getElementById(ariaControls);
+         const greenImg = findElementByAttribute(sectionElement, 'img', 'src', '/img/samples/color_green.gif');
+         const cyanImg = findElementByAttribute(sectionElement, 'img', 'src', '/servlet/servlet.FileDownload?file=0151a000002OTAA');
+         const yellowImg = findElementByAttribute(sectionElement, 'img', 'src', '/img/samples/color_yellow.gif');
+         
         if (tabElement) {
-            const ariaControls = tabElement.getAttribute('aria-controls');
-            console.log('aria-controls:', ariaControls); // Debugging log
-    
+            
             if (ariaControls) {
-                // Locate the section element with the corresponding ID
-                const sectionElement = document.getElementById(ariaControls);
+                
                 if (sectionElement) {
-                    console.log('Section element found:', sectionElement); // Debugging log
-    
-                    // Check if "Cancelled" text is found within the section
+                    // Check for cancelled status
                     isCancelled = findTextInShadow(sectionElement, 'Cancelled') !== null;
-                    console.log('Is Cancelled:', isCancelled); // Debugging log
-    
-                    // Check for the img element with specific src attributes
-                    const greenImg = findElementByAttribute(sectionElement, 'img', 'src', '/img/samples/color_green.gif');
-                    const cyanImg = findElementByAttribute(sectionElement, 'img', 'src', '/servlet/servlet.FileDownload?file=0151a000002OTAA');
-                    const yellowImg = findElementByAttribute(sectionElement, 'img', 'src', '/img/samples/color_yellow.gif');
-    
+                    
+                   
+                    
                     if (greenImg.length > 0) {
                         colorSquare = '<span style="display: inline-block; width: 20px; height: 20px; background-color: green !important; margin-right: 5px; margin-bottom: -3px !important;" title="Green Seller"></span>';
                     } else if (cyanImg.length > 0) {
                         colorSquare = '<span style="display: inline-block; width: 20px; height: 20px; background-color: cyan !important; margin-right: 5px; margin-bottom: -3px !important;" title="Blue Seller"></span>';
                     } else if (yellowImg.length > 0) {
                         colorSquare = '<span style="display: inline-block; width: 20px; height: 20px; background-color: #fcca03 !important; margin-right: 5px; margin-bottom: -3px !important;" title="Yellow Seller"></span>';
-                    } else {
-                        console.log('No matching img element found'); // Debugging log
                     }
-                } else {
-                    console.log('Section element not found'); // Debugging log
                 }
-            } else {
-                console.log('aria-controls attribute not found'); // Debugging log
             }
-        } else {
-            console.log('Tab element not found'); // Debugging log
         }
     
-        // Add case owner title, case number, and "CANCELLED" if applicable
-        const ownerTitleDiv = document.createElement('div');
-        ownerTitleDiv.style.cssText = 'font-size: 20px; font-weight: bold; text-align: center; margin-bottom: 10px;';
-        ownerTitleDiv.innerHTML = `${colorSquare}${caseOwner} | ${caseNumber}${isCancelled ? ' | <span style="color: red !important; font-weight: bold;">CANCELLED</span>' : ''}`;
-        modalContent.appendChild(ownerTitleDiv);
-    
-        // Display Distribution Method
-        const distributionDiv = document.createElement('div');
-        distributionDiv.style.marginBottom = '20px';
-        distributionDiv.innerHTML = `
-            <strong>Distribution Method:</strong> ${distributionMethod}
+        // Header Section with Case Information
+        const headerSection = document.createElement('div');
+        headerSection.style.cssText = `
+            padding: 15px 15px 5px 15px; /* Top, Right, Bottom, Left */
+            margin-bottom: 0;
+            background: #f8f9fa;
         `;
-        modalContent.appendChild(distributionDiv);
-    
-        // Display rows with "YES" in the last column
-        if (info.length === 0) {
-            const itemDiv = document.createElement('div');
-            itemDiv.innerHTML += '<strong>No rows with "YES" found. Check if is a UNITY submission.</strong>';
-            itemDiv.style.marginBottom = '15px';
-            modalContent.appendChild(itemDiv);
-        } else {
-            info.forEach((item) => {
-                const itemDiv = document.createElement('div');
-                itemDiv.style.marginBottom = '15px';
-    
-                const copyButton = document.createElement('button');
-                copyButton.innerText = 'Copy App Name';
-                copyButton.style.cssText = `
-                    margin-top: 5px;
-                    background: #28a745;
-                    color: white;
-                    border: none;
-                    border-radius: 5px;
-                    padding: 5px 10px;
-                    cursor: pointer;
-                `;
-                copyButton.addEventListener('click', () => {
-                    copyToClipboard(item.appName, copyButton);
+
+        // Case title (initially without FAB Preview link)
+        const caseTitle = document.createElement('div');
+        caseTitle.style.cssText = 'font-size: 20px; font-weight: bold; text-align: center; margin-bottom: 15px;';
+        caseTitle.innerHTML = `
+            ${colorSquare}${caseOwner} | ${caseNumber}
+            ${isCancelled ? ' | <span style="color: red !important; font-weight: bold;">CANCELLED</span>' : ''}
+        `;
+        headerSection.appendChild(caseTitle);
+
+        // Create table for Distribution Method and Ops Review
+        const caseInfo = document.createElement('table');
+        caseInfo.style.cssText = `
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+            margin-bottom: 10px;
+        `;
+
+        // Create table row
+        const row = document.createElement('tr');
+
+        // Distribution Method cell (30% width)
+        const distributionCell = document.createElement('td');
+        distributionCell.style.cssText = `
+            width: 30%;
+            padding: 10px;
+            border: 1px solid #e0e0e0;
+            vertical-align: top;
+        `;
+        distributionCell.innerHTML = `
+            <strong>Distribution Method:</strong>
+            <div style="margin-top: 5px;">${distributionMethod}</div>
+        `;
+
+        // Ops Review cell (70% width)
+        const opsReviewCell = document.createElement('td');
+        opsReviewCell.style.cssText = `
+            width: 70%;
+            padding: 10px;
+            border: 1px solid #e0e0e0;
+            vertical-align: top;
+        `;
+        opsReviewCell.innerHTML = `
+            <strong>Ops Review Information:</strong>
+            <div style="margin-top: 5px; word-wrap: break-word; overflow-wrap: break-word;">${opsReviewText}</div>
+        `;
+
+        row.appendChild(distributionCell);
+        row.appendChild(opsReviewCell);
+        caseInfo.appendChild(row);
+        headerSection.appendChild(caseInfo);
+
+        // Check for SBP seller
+        let isSBP = false;
+        if (sectionElement) {
+            const sbpElements = getAllShadowElements(sectionElement, 'records-record-layout-item[field-label="Marketplace SBP"]');
+            sbpElements.forEach((item) => {
+                const checkboxes = getAllShadowElements(item, 'input[type="checkbox"]');
+                checkboxes.forEach((checkbox) => {
+                    if (checkbox.checked) {
+                        isSBP = true;
+                    }
                 });
-    
-                const p4vButton = document.createElement('button');
-                p4vButton.innerText = 'P4V data';
-                p4vButton.style.cssText = `
-                    margin-top: 5px;
-                    margin-left: 10px;
-                    background: #ff9800;
-                    color: white;
-                    border: none;
-                    border-radius: 5px;
-                    padding: 5px 10px;
-                    cursor: pointer;
-                `;
-                p4vButton.addEventListener('click', () => {
-                    const p4vData = {
-                        earliestUEVersion: getEarliestUEVersion(item.engineVersion),
-                        distributionMethod: distributionMethod,
-                        appName: item.appName,
-                        SFcase: getCaseNumber(),
-                        caseType: caseOwner // This is already available in the modal scope
-                    };
-                    copyToClipboard(JSON.stringify(p4vData, null, 2), p4vButton);
-                });
-    
-                const hordeButton = document.createElement('button');
-                hordeButton.innerText = 'Horde';
-                hordeButton.style.cssText = `
-                    margin-top: 5px;
-                    margin-left: 10px;
-                    background: #007bff;
-                    color: white;
-                    border: none;
-                    border-radius: 5px;
-                    padding: 5px 10px;
-                    cursor: pointer;
-                `;
-                hordeButton.addEventListener('click', () => {
-                    const appName = item.appName; // Get the specific app name
-                    console.log('Horde button clicked for app:', appName); // Debugging log
-    
-                    const appData = getHordeAppData(appName); // Collect data for the specific app name
-                    console.log('Collected app data:', appData); // Debugging log
-    
-                    sendHordeAppData(appData); // Send the app data to Horde
-                });
-    
-                itemDiv.innerHTML = `
-                    <strong>App Name:</strong> ${item.appName}<br>
-                    <strong>Engine Version:</strong> ${item.engineVersion}<br>
-                    <strong>Target Platforms:</strong> ${item.targetPlatforms}<br>
-                    <strong>Version Notes:</strong> ${item.versionNotes}<br>
-                    <strong>Is New or Changed:</strong> ${item.isNewOrChanged}<br>
-                    <strong>Download:</strong> ${item.downloadLink !== 'N/A' ? createDownloadLinks(item.downloadLink) : 'N/A'}<br>
-                `;
-    
-                itemDiv.appendChild(copyButton);
-                itemDiv.appendChild(p4vButton);
-                itemDiv.appendChild(hordeButton);
-                modalContent.appendChild(itemDiv);
             });
         }
+
+        // Add warning message if either condition is met
+        // Note: We can use cyanImg here because it's already defined in the outer scope
+        if ((cyanImg && cyanImg.length > 0) || isSBP) {
+            const warningDiv = document.createElement('div');
+            warningDiv.style.cssText = `
+                background-color: #fff3cd;
+                border: 1px solid #ffeeba;
+                color: #856404;
+                padding: 15px;
+                margin-top: 10px;
+                border-radius: 4px;
+            `;
+
+            if (cyanImg && cyanImg.length > 0) {
+                warningDiv.innerHTML = 'This is a seller with a Blue Warning indicator, please follow the current procedure before Changes Needing';
+            }
+            
+            if (isSBP) {
+                warningDiv.innerHTML = 'This is a SBP seller (<a href="https://confluence.it.epicgames.com/display/EMP/Adding+Strategic+Business+Partner+Content" target="_blank" style="color: #856404; text-decoration: underline;">Strategic Business Partner</a>) please confirm with a Lead or with Epic before Changes Needing this product';
+            }
+
+            headerSection.appendChild(warningDiv);
+        }
+
+        modalContent.appendChild(headerSection);
     
-        // Display Ops Review information
-        const opsReviewDiv = document.createElement('div');
-        opsReviewDiv.style.marginTop = '20px';
-        opsReviewDiv.innerHTML = `
-            <strong>Ops Review Information:</strong><br>${opsReviewText}
+        // Check for Unity product and display info if found
+        console.log('Checking for Unity product...');
+        console.log('Ops Review Text:', opsReviewText);
+        if (opsReviewText.includes("Unity Engine format found")) {  // Changed to includes() for more flexibility
+            console.log('Unity product detected, extracting info...');
+            const unityInfo = extractUnityInfo(sectionElement);
+            console.log('Extracted Unity Info:', unityInfo);
+
+            if (unityInfo) {
+                console.log('Creating Unity section with info:', unityInfo);
+                const unitySection = document.createElement('div');
+                unitySection.style.cssText = `
+                    padding: 15px;
+                    background: #f8f9fa;
+                    margin: 20px 0;
+                    border: 1px solid #e0e0e0;
+                    border-radius: 5px;
+                `;
+
+                const unityTitle = document.createElement('h3');
+                unityTitle.textContent = 'Unity Format:';
+                unityTitle.style.cssText = `
+                    margin: 0 0 15px 0;
+                    font-size: 18px;
+                    font-weight: bold;
+                `;
+                unitySection.appendChild(unityTitle);
+
+                const unityContent = document.createElement('div');
+                unityContent.style.cssText = 'line-height: 1.5;';
+                
+                // Only show elements that exist
+                const contentHTML = [];
+                
+                if (unityInfo.productUrl) {
+                    contentHTML.push(`<p><strong>Product Url:</strong> <a href="${unityInfo.productUrl.href}" target="_blank" style="color: #007bff; text-decoration: none;">${unityInfo.productUrl.text}</a></p>`);
+                }
+                
+                if (unityInfo.containsDependencies) {
+                    contentHTML.push(`<p><strong>Contains Package Dependencies:</strong> ${unityInfo.containsDependencies}</p>`);
+                }
+                
+                if (unityInfo.packageDependencies) {
+                    contentHTML.push(`<p><strong>Package Dependencies:</strong> ${unityInfo.packageDependencies}</p>`);
+                }
+                
+                unityContent.innerHTML = contentHTML.join('');
+                unitySection.appendChild(unityContent);
+
+                console.log('Unity section created:', unitySection);
+                modalContent.appendChild(unitySection);
+            } else {
+                console.log('Unity info extraction failed');
+            }
+        } else {
+            console.log('Not a Unity product');
+        }
+
+        // Filter Section
+        const filterSection = document.createElement('div');
+        filterSection.style.cssText = `
+            padding: 15px;
+            background: #f8f9fa;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         `;
-        modalContent.appendChild(opsReviewDiv);
     
+        const countDisplay = document.createElement('div');
+        countDisplay.style.cssText = 'font-size: 14px;';
+    
+        const checkboxContainer = document.createElement('div');
+        checkboxContainer.style.cssText = 'display: flex; align-items: center; gap: 8px;';
+        
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.id = 'showAllApps';
+        checkbox.style.cursor = 'pointer';
+        
+        const label = document.createElement('label');
+        label.htmlFor = 'showAllApps';
+        label.textContent = 'Show apps with "NO"';
+        label.style.cssText = 'cursor: pointer; user-select: none;';
+    
+        checkboxContainer.appendChild(checkbox);
+        checkboxContainer.appendChild(label);
+        
+        filterSection.appendChild(countDisplay);
+        filterSection.appendChild(checkboxContainer);
+        modalContent.appendChild(filterSection);
+    
+        // Accordion Panels Container
+        const accordionContainer = document.createElement('div');
+        accordionContainer.style.cssText = 'padding: 0 15px;';
+    
+        // Function to update displayed panels and count
+        function updateDisplay() {
+            const showAll = checkbox.checked;
+            
+            // Clear existing panels
+            accordionContainer.innerHTML = '';
+            
+            // Filter and create panels
+            const visibleItems = info.filter(item => showAll || item.isNewOrChanged === 'YES');
+            
+            visibleItems.forEach((item, index) => {
+                const panel = createAccordionPanel(item, index, distributionMethod);
+                accordionContainer.appendChild(panel);
+            });
+    
+            // Update count display
+            countDisplay.innerHTML = `
+            <span style="font-size: 18px; font-weight: bold;">UE Format:</span> 
+            Total app names with ${showAll ? '"YES" & "NO"' : '"YES"'}: 
+            <span style="font-weight: bold;">${visibleItems.length}</span>
+            `;
+
+        }
+    
+        // Initial display
+        updateDisplay();
+    
+        // Add checkbox event listener
+        checkbox.addEventListener('change', updateDisplay);
+    
+        // Initial count update
+        updateDisplay();
+    
+        modalContent.appendChild(accordionContainer);
         modal.appendChild(modalContent);
-    
-        // Append the modal to the document body
         document.body.appendChild(modal);
     
-        // Fetch the FAB URL and update the modal
+        // Fetch FAB URL asynchronously and update the title when available
         getFabURL(caseNumber).then(fabURL => {
             if (fabURL) {
-                ownerTitleDiv.innerHTML += ` | <a href="${fabURL}" target="_blank">Fab Preview</a>`;
+                // Get the Django URL from the text node we found earlier
+                const searchText = "https://fab-admin.daec.live.use1a.on.epicgames.com/admin/listings/listing/";
+                const node = findTextInShadowDOM(sectionElement, searchText);
+                const djangoURL = node ? node.textContent.trim() : null;
+        
+                if (djangoURL) {
+                    const links = ` | <a href="${djangoURL}" target="_blank" style="color: #007bff; text-decoration: none;">Django Link</a> | <a href="${fabURL}" target="_blank" style="color: #007bff; text-decoration: none;">FAB Preview</a>`;
+                    
+                    caseTitle.innerHTML = `
+                        ${colorSquare}${caseOwner} | ${caseNumber}
+                        ${isCancelled ? ' | <span style="color: red !important; font-weight: bold;">CANCELLED</span>' : ''}
+                        ${links}
+                    `;
+                }
+            }
+        }).catch(error => {
+            console.error('Error getting FAB URL:', error);
+        });
+    }
+    
+    function createAccordionPanel(item, index, distributionMethod) {
+        // Outer panel with overflow visible
+        const panel = document.createElement('div');
+        panel.className = 'accordion-panel';
+        panel.style.cssText = `
+            margin-bottom: 10px;
+            overflow: visible;
+        `;
+    
+        // Inner panel with rounded corners
+        const innerPanel = document.createElement('div');
+        innerPanel.style.cssText = `
+            border-radius: 5px;
+            background: ${item.isNewOrChanged === 'NO' ? '#fff3e0' : 'white'};
+            overflow: visible;
+        `;
+    
+        const earliestVersion = getEarliestUEVersion(item.engineVersion);
+        const versions = item.engineVersion.split(';');
+        const additionalVersions = versions.length - 1;
+        const targetPlatforms = getTargetPlatforms(item.targetPlatforms);
+    
+        // Combined Info and Action Bar
+        const combinedBar = document.createElement('div');
+        combinedBar.style.cssText = `
+            padding: 15px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            background: ${item.isNewOrChanged === 'NO' ? '#FFD9B3' : '#f8f9fa'};
+            justify-content: space-between;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            margin-bottom: -1px;
+            position: relative;
+            z-index: 1;
+        `;
+    
+        // Create a wrapper div for app name container
+        const appNameWrapper = document.createElement('div');
+        appNameWrapper.style.cssText = `
+            position: relative;
+            padding-top: 25px;
+            margin-top: -25px;
+            z-index: 1;
+        `;
+    
+        // Create clickable app name container
+        const appNameContainer = document.createElement('div');
+        appNameContainer.style.cssText = `
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 4px 8px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            background: white;
+        `;
+        appNameContainer.innerHTML = `<strong style="font-size: 16px;">${item.appName}</strong>`;
+    
+        // Create copied notification
+        const copiedNotification = document.createElement('div');
+        copiedNotification.style.cssText = `
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(40, 167, 69, 0.9);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
+            white-space: nowrap;
+            z-index: 999999;
+        `;
+        copiedNotification.textContent = 'App Name Copied!';
+        appNameWrapper.appendChild(copiedNotification);
+        appNameWrapper.appendChild(appNameContainer);
+    
+        appNameContainer.addEventListener('click', (e) => {
+            e.stopPropagation();
+            navigator.clipboard.writeText(item.appName).then(() => {
+                copiedNotification.style.opacity = '1';
+                setTimeout(() => {
+                    copiedNotification.style.opacity = '0';
+                }, 1500);
+            });
+        });
+    
+        // Create the main info container
+        const infoContainer = document.createElement('div');
+        infoContainer.style.cssText = 'flex-grow: 1; display: flex; align-items: center; gap: 15px; margin-left: 15px;';
+        infoContainer.innerHTML = `
+            <span>UE Version:<br>   ${earliestVersion}${additionalVersions > 0 ? ` (+${additionalVersions})` : ''}</span>
+            <span style="color: #666;">|</span>
+            <span>${targetPlatforms.join(', ')}</span>
+            <span style="color: #666;">|</span>
+            <span>${createDownloadLinks(item.downloadLink)}</span>
+        `;
+    
+        // Action buttons container
+        const actionContainer = document.createElement('div');
+        actionContainer.style.cssText = 'display: flex; gap: 10px; align-items: center;';
+    
+        // P4V data button
+        const p4vButton = document.createElement('button');
+        p4vButton.innerText = 'P4V data';
+        p4vButton.style.cssText = `
+            background: #ff9800;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            padding: 6px 12px;
+            cursor: pointer;
+            font-size: 14px;
+        `;
+        p4vButton.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const p4vData = {
+                earliestUEVersion: earliestVersion,
+                distributionMethod: distributionMethod,
+                appName: item.appName,
+                SFcase: getCaseNumber(),
+                caseType: getCaseOwner()
+            };
+            copyToClipboard(JSON.stringify(p4vData, null, 2), p4vButton);
+        });
+        actionContainer.appendChild(p4vButton);
+    
+        // Horde button
+        const hordeButton = document.createElement('button');
+        hordeButton.innerText = 'Horde';
+        hordeButton.style.cssText = `
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            padding: 6px 12px;
+            cursor: pointer;
+            font-size: 14px;
+        `;
+        hordeButton.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const appData = getHordeAppData(item.appName);
+            sendHordeAppData(appData);
+        });
+        actionContainer.appendChild(hordeButton);
+    
+        // Expand indicator
+        const expandIndicator = document.createElement('div');
+        expandIndicator.style.cssText = 'margin-left: 10px;';
+        expandIndicator.innerHTML = '<span class="expand-indicator" style="font-size: 20px; color: #666;">▼</span>';
+    
+        // Details Panel wrapper
+        const detailsPanelWrapper = document.createElement('div');
+        detailsPanelWrapper.style.cssText = `
+            overflow: hidden;
+            border: none;
+            border-radius: 5px;
+            background: ${item.isNewOrChanged === 'NO' ? '#FFD9B3' : 'white'};
+        `;
+                    
+        // Details Panel
+        const detailsPanel = document.createElement('div');
+        detailsPanel.style.cssText = `
+            padding: 15px;
+            display: none;
+            background: transparent;  /* Change to transparent since wrapper handles background */
+        `;
+        detailsPanel.innerHTML = `
+            <div style="margin-bottom: 10px;"><strong>Engine Version:</strong> ${item.engineVersion}</div>
+            <div style="margin-bottom: 10px;"><strong>Target Platforms:</strong> ${item.targetPlatforms}</div>
+            <div style="margin-bottom: 10px;"><strong>Version Notes:</strong> ${item.versionNotes}</div>
+            <div><strong>Is New or Changed:</strong> ${item.isNewOrChanged}</div>
+        `;
+    
+        if (item.isNewOrChanged === 'NO') {
+            combinedBar.style.backgroundColor = "#FFD9B3";
+            detailsPanelWrapper.style.backgroundColor = "#FFD9B3";  // Set on wrapper instead of panel
+        }
+    
+        // Assemble the combined bar
+        combinedBar.appendChild(appNameWrapper);
+        combinedBar.appendChild(infoContainer);
+        combinedBar.appendChild(actionContainer);
+        combinedBar.appendChild(expandIndicator);
+    
+        // Wrap detailsPanel in its wrapper
+        detailsPanelWrapper.appendChild(detailsPanel);
+    
+        // Append all sections to inner panel
+        innerPanel.appendChild(combinedBar);
+        innerPanel.appendChild(detailsPanelWrapper);
+        
+        // Append inner panel to outer panel
+        panel.appendChild(innerPanel);
+    
+        // Add click handler for expansion
+        panel.addEventListener('click', (e) => {
+            if (!e.target.closest('button') && !e.target.closest('a') && !e.target.closest('[style*="border: 1px solid #ddd"]')) {
+                const expandIndicator = panel.querySelector('.expand-indicator');
+                const isExpanded = detailsPanel.style.display === 'block';
+                
+                detailsPanel.style.display = isExpanded ? 'none' : 'block';
+                // Update border based on panel state
+                detailsPanelWrapper.style.border = isExpanded ? 'none' : '1px solid #ddd';
+                expandIndicator.style.transform = `rotate(${isExpanded ? '0' : '180'}deg)`;
+                expandIndicator.style.transition = 'transform 0.3s ease';
             }
         });
+    
+        return panel;
     }
 
     function getCaseIdFromURL() {
@@ -2489,6 +2952,8 @@ if (relevantShift) {
     }
 
     function createModal() {
+        const overlay = createOverlay();
+        document.body.appendChild(overlay);
         const modal = document.createElement('div');
         modal.id = 'custom-modal';
         modal.style.cssText = `
@@ -2521,6 +2986,7 @@ if (relevantShift) {
         `;
         closeButton.addEventListener('click', () => {
             modal.remove();
+            removeOverlay();
         });
 
         modal.appendChild(closeButton);
@@ -2532,9 +2998,15 @@ if (relevantShift) {
     // functions to close the modal used in initializeUI
     function closeExistingModal() {
         const existingModal = document.getElementById('custom-modal');
+        const existingOverlay = document.getElementById('sf-helper-overlay');
         if (existingModal) {
             existingModal.remove();
             console.log('Existing modal closed.');
+        }
+
+        if (existingOverlay) {
+            existingOverlay.remove();
+            console.log('Overlay removed.');
         }
 
         const shiftSection = document.getElementById('shift-section');
@@ -2567,13 +3039,13 @@ if (relevantShift) {
                 const fileId = fileIdMatch[1];
                 const directLink = `https://drive.google.com/uc?export=download&id=${fileId}`;
                 return `
-                    <a href="${downloadLink}" target="_blank">Link</a> |
+                    <a href="${downloadLink}" target="_blank"> Download Link</a><br>
                     <a href="${directLink}" target="_blank">Direct Link</a>
                 `;
             }
         }
         // If it's not a Google Drive link, return only the normal link
-        return `<a href="${downloadLink}" target="_blank">Link</a>`;
+        return `<a href="${downloadLink}" target="_blank">Download Link</a>`;
     }
 
     //Function to change the status of the SF Case
@@ -2834,6 +3306,9 @@ if (relevantShift) {
 
     async function displayShiftInfo() {
         closeExistingModal(); // Close any existing modal or shift section
+
+        const overlay = createOverlay();
+        document.body.appendChild(overlay);
     
         const tandaData = localStorage.getItem('parsedTandaScheduleData');
         if (!tandaData) return;
@@ -2931,6 +3406,7 @@ if (relevantShift) {
         `;
         closeButton.addEventListener('click', () => {
             shiftSection.remove();
+            removeOverlay();
         });
         shiftSection.appendChild(closeButton);
     
@@ -3171,6 +3647,9 @@ if (relevantShift) {
 
         function showShiftReportModal(start, end, duration) {
             closeExistingModal();
+            const overlay = createOverlay();
+            document.body.appendChild(overlay);
+
             const caseLog = JSON.parse(localStorage.getItem('sfCaseLog')) || [];
             const totalMinutes = Math.round((new Date(end) - new Date(start)) / (1000 * 60)); // Ensure integer minutes
         
@@ -3215,6 +3694,7 @@ if (relevantShift) {
             `;
             closeButton.addEventListener('click', () => {
                 modal.remove();
+                removeOverlay();
             });
         
             const customEventCheckbox = document.createElement('input');
