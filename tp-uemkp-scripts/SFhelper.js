@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         SFhelper
 // @namespace    http://tampermonkey.net/
-// @version      2.9.9.1
+// @version      2.9.9.2
 // @description  Designed to assist mods (T1 & T2) in the workflow and shift reports.
 // @author       Oscar O.
 // @match        https://epicgames.lightning.force.com/lightning/*
@@ -11,7 +11,7 @@
 // @connect      fab-admin.daec.live.use1a.on.epicgames.com
 // @downloadURL  https://raw.githubusercontent.com/212oscar/sforward/main/tp-uemkp-scripts/SFhelper.user.js
 // @updateURL    https://raw.githubusercontent.com/212oscar/sforward/main/tp-uemkp-scripts/SFhelper.user.js
-// @history      2.9.9.1 Improved the Copy notifications when the SF case, App names or P4V info is copied 
+// @history      2.9.9.2 Improved the Copy notifications when the SF case, App names or P4V info is copied 
 // @history      2.9.9 Improved the App names displaying style and added a warning when seller is BLUE or SBP
 // @history      2.9.8 Fixed a bug where template IDs were not being stored correctly after using the edit button, now the URL will be stored instead of the extracted ID.
 // @history      2.9.7.2 Updated the Binary string for 5.2 version when hording plugins (5.2.0-25360045+++UE5+Release-5.2) was updated again in the confluence
@@ -42,6 +42,7 @@
     function showTandaModal() {
         const modal = document.createElement('div');
         modal.id = 'custom-modal';
+        modal.className = 'keep-overlay';  // class to avoid closing the dark overlay when clicking any button in the script
         modal.style.cssText = `
             position: fixed;
             top: 50%;
@@ -781,6 +782,7 @@ function createOverlay() {
         width: 100%;
         height: 100%;
         z-index: 9999;
+        pointer-events: none; /* Allow clicks to pass through */
     `;
 
     const shadowRoot = shadowHost.attachShadow({ mode: 'open' });
@@ -794,6 +796,7 @@ function createOverlay() {
         background-color: rgba(0, 0, 0, 0) !important; /* Start with transparent */
         transition: background-color 0.3s ease-in-out !important; /* Smooth transition */
         z-index: 9999 !important;
+        pointer-events: none !important; /* Allow clicks to pass through */
     `;
 
     shadowRoot.appendChild(overlay);
@@ -802,6 +805,22 @@ function createOverlay() {
     setTimeout(() => {
         overlay.style.backgroundColor = 'rgba(0, 0, 0, 0.4)';
     }, 10);
+
+    // Add click listener to document to detect clicks anywhere
+    const clickHandler = (e) => {
+        // Check if the click target is not part of your application's UI that should keep the overlay
+        // You might want to customize this condition based on your needs
+        if (!e.target.closest('.keep-overlay')) {
+            removeOverlay();
+            // Remove the click listener after overlay is removed
+            document.removeEventListener('click', clickHandler);
+        }
+    };
+
+    // Add the click listener with a small delay to prevent immediate triggering
+    setTimeout(() => {
+        document.addEventListener('click', clickHandler);
+    }, 100);
 
     document.body.appendChild(shadowHost);
     overlayInstance = shadowHost;
@@ -819,7 +838,6 @@ function removeOverlay() {
         }, 300); // Match the transition duration
     }
 }
-
 
 
 
@@ -902,6 +920,7 @@ async function getFabURL(caseNumber) {
         document.body.appendChild(overlay);
         const modal = document.createElement('div');
         modal.id = 'custom-modal';
+        modal.className = 'keep-overlay';  // class to avoid closing the dark overlay when clicking any button in the script
         modal.style.cssText = `
             position: fixed;
             top: 50%;
@@ -1052,6 +1071,7 @@ function getTemplateSheetId(template, callback) {
     function showEditModal() {
         const modal = document.createElement('div');
         modal.id = 'custom-modal';
+        modal.className = 'keep-overlay';  // class to avoid closing the dark overlay when clicking any button in the script
         modal.style.cssText = `
             position: fixed;
             top: 50%;
@@ -1719,6 +1739,7 @@ if (relevantShift) {
     function createSection(id, top) {
         const section = document.createElement('div');
         section.id = id;
+        section.className = 'keep-overlay';  // class to avoid closing the dark overlay when clicking any button in the script
         section.style.cssText = `
             position: fixed;
             top: ${top};
@@ -2982,6 +3003,7 @@ if (relevantShift) {
         document.body.appendChild(overlay);
         const modal = document.createElement('div');
         modal.id = 'custom-modal';
+        modal.className = 'keep-overlay';  // class to avoid closing the dark overlay when clicking any button in the script
         modal.style.cssText = `
             position: fixed;
             top: 20%;
@@ -3357,6 +3379,7 @@ if (relevantShift) {
     
         const shiftSection = document.createElement('div');
         shiftSection.id = 'shift-section';
+        shiftSection.className = 'keep-overlay';  // class to avoid closing the dark overlay when clicking any button in the script
         shiftSection.style.cssText = `
             position: fixed;
             top: 120px;
@@ -3691,6 +3714,7 @@ if (relevantShift) {
         
             const modal = document.createElement('div');
             modal.id = 'custom-modal';
+            modal.className = 'keep-overlay';  // class to avoid closing the dark overlay when clicking any button in the script
             modal.style.cssText = `
                 position: fixed;
                 top: 20%;

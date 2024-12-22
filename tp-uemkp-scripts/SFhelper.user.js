@@ -42,6 +42,7 @@
     function showTandaModal() {
         const modal = document.createElement('div');
         modal.id = 'custom-modal';
+        modal.className = 'keep-overlay';  // class to avoid closing the dark overlay when clicking any button in the script
         modal.style.cssText = `
             position: fixed;
             top: 50%;
@@ -919,6 +920,7 @@ async function getFabURL(caseNumber) {
         document.body.appendChild(overlay);
         const modal = document.createElement('div');
         modal.id = 'custom-modal';
+        modal.className = 'keep-overlay';  // class to avoid closing the dark overlay when clicking any button in the script
         modal.style.cssText = `
             position: fixed;
             top: 50%;
@@ -1069,6 +1071,7 @@ function getTemplateSheetId(template, callback) {
     function showEditModal() {
         const modal = document.createElement('div');
         modal.id = 'custom-modal';
+        modal.className = 'keep-overlay';  // class to avoid closing the dark overlay when clicking any button in the script
         modal.style.cssText = `
             position: fixed;
             top: 50%;
@@ -3000,6 +3003,7 @@ if (relevantShift) {
         document.body.appendChild(overlay);
         const modal = document.createElement('div');
         modal.id = 'custom-modal';
+        modal.className = 'keep-overlay';  // class to avoid closing the dark overlay when clicking any button in the script
         modal.style.cssText = `
             position: fixed;
             top: 20%;
@@ -3375,6 +3379,7 @@ if (relevantShift) {
     
         const shiftSection = document.createElement('div');
         shiftSection.id = 'shift-section';
+        shiftSection.className = 'keep-overlay';  // class to avoid closing the dark overlay when clicking any button in the script
         shiftSection.style.cssText = `
             position: fixed;
             top: 120px;
@@ -3709,6 +3714,7 @@ if (relevantShift) {
         
             const modal = document.createElement('div');
             modal.id = 'custom-modal';
+            modal.className = 'keep-overlay';  // class to avoid closing the dark overlay when clicking any button in the script
             modal.style.cssText = `
                 position: fixed;
                 top: 20%;
