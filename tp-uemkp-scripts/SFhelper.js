@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         SFhelper
 // @namespace    http://tampermonkey.net/
-// @version      2.9.9.2
+// @version      2.9.9.3
 // @description  Designed to assist mods (T1 & T2) in the workflow and shift reports.
 // @author       Oscar O.
 // @match        https://epicgames.lightning.force.com/lightning/*
@@ -11,6 +11,7 @@
 // @connect      fab-admin.daec.live.use1a.on.epicgames.com
 // @downloadURL  https://raw.githubusercontent.com/212oscar/sforward/main/tp-uemkp-scripts/SFhelper.user.js
 // @updateURL    https://raw.githubusercontent.com/212oscar/sforward/main/tp-uemkp-scripts/SFhelper.user.js
+// @history      2.9.9.3 Added the new 2025 shift report form link
 // @history      2.9.9.2 Improved the Copy notifications when the SF case, App names or P4V info is copied 
 // @history      2.9.9 Improved the App names displaying style and added a warning when seller is BLUE or SBP
 // @history      2.9.8 Fixed a bug where template IDs were not being stored correctly after using the edit button, now the URL will be stored instead of the extracted ID.
@@ -1181,6 +1182,7 @@ function getTemplateSheetId(template, callback) {
                 }
             });
             document.body.removeChild(modal);
+            removeOverlay();
         });
         buttonContainer.appendChild(saveButton);
     
@@ -1310,6 +1312,7 @@ function initializeUI() {
         option.addEventListener('click', () => {
             trcTemplateMenu.style.display = 'none';
             openNewTabWithTemplate(template);
+            removeOverlay();
         });
         trcTemplateMenu.appendChild(option);
     });
@@ -1330,6 +1333,7 @@ function initializeUI() {
         `;
         editButton.addEventListener('click', () => {
             showEditModal();
+
         });
         trcTemplateMenu.appendChild(editButton);
     
@@ -1337,25 +1341,61 @@ function initializeUI() {
     section1.appendChild(trcTemplateMenu);
 
     // Create the "Create TRC" button (Purple)
-    const createTRCButton = createButton('Create TRC', '#6f42c1', () => {
+    const createTRCButton = createButton('Create TRC', '#6f42c1', (event) => {
         checkPageLoading();
         if (isPageLoading) {
             showAlertModal(pageNotLoadedMessage);
             return;
         }
-        closeExistingModal(); // Close any existing modal
+        event.stopPropagation(); // Prevent event bubbling
+        closeExistingModal();
+        removeOverlay();
+        
+        // Show the menu
         trcTemplateMenu.style.display = 'block';
+        
+        // Add a small delay before adding the event listeners
+        setTimeout(() => {
+            // Add mouseleave handlers
+            createTRCButton.addEventListener('mouseleave', handleButtonMouseLeave);
+            trcTemplateMenu.addEventListener('mouseleave', handleMenuMouseLeave);
+            
+            // Add click handler to document to close menu when clicking outside
+            document.addEventListener('click', handleDocumentClick);
+        }, 100);
     });
-    createTRCButton.addEventListener('mouseleave', () => {
+
+    // Handler functions
+    const handleButtonMouseLeave = () => {
         setTimeout(() => {
             if (!trcTemplateMenu.matches(':hover')) {
                 trcTemplateMenu.style.display = 'none';
+                removeEventListeners();
             }
         }, 500);
-    });
-    trcTemplateMenu.addEventListener('mouseleave', () => {
-        trcTemplateMenu.style.display = 'none';
-    });
+    };
+
+    const handleMenuMouseLeave = () => {
+        if (!createTRCButton.matches(':hover')) {
+            trcTemplateMenu.style.display = 'none';
+            removeEventListeners();
+        }
+    };
+
+    const handleDocumentClick = (event) => {
+        if (!trcTemplateMenu.contains(event.target) && event.target !== createTRCButton) {
+            trcTemplateMenu.style.display = 'none';
+            removeEventListeners();
+        }
+    };
+
+    // Function to remove event listeners
+    const removeEventListeners = () => {
+        createTRCButton.removeEventListener('mouseleave', handleButtonMouseLeave);
+        trcTemplateMenu.removeEventListener('mouseleave', handleMenuMouseLeave);
+        document.removeEventListener('click', handleDocumentClick);
+    };
+
     section1.appendChild(createTRCButton);
 
     // Create a small centered text in yellow
@@ -3892,7 +3932,7 @@ if (relevantShift) {
             const endPST = new Date(end).toLocaleString('en-US', { timeZone: 'America/Los_Angeles' });
         
             modal.innerHTML = `
-                <h2 style="font-size: 18px; text-align: center;"><strong>Shift Report | <a href="https://docs.google.com/forms/d/e/1FAIpQLScAMutydoYRf-fNJ_56pggsJCH2r1alat90ihD0-LfM7Tc03Q/viewform" target="_blank">Form Link</a></strong></h2>
+                <h2 style="font-size: 18px; text-align: center;"><strong>Shift Report | <a href="https://docs.google.com/forms/d/e/1FAIpQLScq0s79IexykF6BRDOEowKXtGyDQDw3t1_yR4CDRJyQfSihVg/viewform" target="_blank">Form Link</a></strong></h2>
                 <hr>
                 <p><strong>Date:</strong> ${new Date(start).toLocaleDateString()}</p>
                 <p><strong>Start (PST):</strong> ${startPST}</p>
