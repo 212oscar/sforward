@@ -11,7 +11,7 @@
 // @connect      fab-admin.daec.live.use1a.on.epicgames.com
 // @downloadURL  https://raw.githubusercontent.com/212oscar/sforward/main/tp-uemkp-scripts/SFhelper.user.js
 // @updateURL    https://raw.githubusercontent.com/212oscar/sforward/main/tp-uemkp-scripts/SFhelper.user.js
-// @history      2.9.9.4 Fixed the getEarliestUEVersion function to void getting the wrong earliest version (example, now it will recognize that 4.2 is minor than 4.10)
+// @history      2.9.9.4 Fixed the getEarliestUEVersion function to avoid getting the wrong earliest version (example, now it will recognize that 4.2 is minor than 4.10)
 // @history      2.9.9.3 Added the new 2025 shift report form link
 // @history      2.9.9.2 Improved the Copy notifications when the SF case, App names or P4V info is copied 
 // @history      2.9.9 Improved the App names displaying style and added a warning when seller is BLUE or SBP
