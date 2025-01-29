@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         SFhelper
 // @namespace    http://tampermonkey.net/
-// @version      2.9.9.3
+// @version      2.9.9.4
 // @description  Designed to assist mods (T1 & T2) in the workflow and shift reports.
 // @author       Oscar O.
 // @match        https://epicgames.lightning.force.com/lightning/*
@@ -11,6 +11,7 @@
 // @connect      fab-admin.daec.live.use1a.on.epicgames.com
 // @downloadURL  https://raw.githubusercontent.com/212oscar/sforward/main/tp-uemkp-scripts/SFhelper.user.js
 // @updateURL    https://raw.githubusercontent.com/212oscar/sforward/main/tp-uemkp-scripts/SFhelper.user.js
+// @history      2.9.9.4 Fixed the getEarliestUEVersion function to void getting the wrong earliest version (example, now it will recognize that 4.2 is minor than 4.10)
 // @history      2.9.9.3 Added the new 2025 shift report form link
 // @history      2.9.9.2 Improved the Copy notifications when the SF case, App names or P4V info is copied 
 // @history      2.9.9 Improved the App names displaying style and added a warning when seller is BLUE or SBP
@@ -4187,10 +4188,15 @@ if (relevantShift) {
     }
     
 
-
+    //Using this version to avoid getting 4.10 as the earliest version instead of 4.2 for example.
     function getEarliestUEVersion(engineVersion) {
         const versions = engineVersion.split(';').map(v => v.replace('UE_', ''));
-        return versions.sort()[0];
+        return versions.sort((a, b) => {
+            const [aMajor, aMinor] = a.split('.').map(Number);
+            const [bMajor, bMinor] = b.split('.').map(Number);
+            if (aMajor !== bMajor) return aMajor - bMajor;
+            return aMinor - bMinor;
+        })[0];
     }
 
     function getTargetPlatforms(platforms) {
