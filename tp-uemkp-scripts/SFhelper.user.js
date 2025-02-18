@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         SFhelper
 // @namespace    http://tampermonkey.net/
-// @version      2.9.9.4
+// @version      2.9.9.5
 // @description  Designed to assist mods (T1 & T2) in the workflow and shift reports.
 // @author       Oscar O.
 // @match        https://epicgames.lightning.force.com/lightning/*
@@ -9,8 +9,9 @@
 // @match        https://horde.devtools.epicgames.com/stream/ue5-marketplace?tab=General
 // @grant        GM_xmlhttpRequest
 // @connect      fab-admin.daec.live.use1a.on.epicgames.com
-// @downloadURL  https://raw.githubusercontent.com/212oscar/sforward/main/tp-uemkp-scripts/SFhelper.user.js
-// @updateURL    https://raw.githubusercontent.com/212oscar/sforward/main/tp-uemkp-scripts/SFhelper.user.js
+// @downloadURL  https://drive.google.com/uc?export=download&id=1HjZ89bhMmFvRBeySHdCx9eSeBC9kKigS
+// @updateURL    https://drive.google.com/uc?export=download&id=1HjZ89bhMmFvRBeySHdCx9eSeBC9kKigS
+// @history      2.9.9.5 Switched to a google drive (Modsquad) internal link
 // @history      2.9.9.4 Fixed the getEarliestUEVersion function to avoid getting the wrong earliest version (example, now it will recognize that 4.2 is minor than 4.10)
 // @history      2.9.9.3 Added the new 2025 shift report form link
 // @history      2.9.9.2 Improved the Copy notifications when the SF case, App names or P4V info is copied 
